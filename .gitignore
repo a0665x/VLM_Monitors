@@ -13,3 +13,4 @@ data/ngrok_webrtc_url.txt
 .codex/
 data/ngrok.yml
 .agents/
+data/public_url_provider.txt

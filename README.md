@@ -1,31 +1,31 @@
-# 把家裡不要的手機都拿來當監控吧！
+# Turn Your Old Phones Into Security Cameras
 
-把舊手機、備用手機、平板，直接變成家裡或工作場域的監控鏡頭；再用一台有算力的 Linux 主機集中接收畫面、切換來源、做本地 VLM 風險分析，真的有狀況時再送出通知。
+Turn old phones, backup phones, and tablets into live monitoring cameras, then use one compute-capable Linux host to collect feeds, switch sources, run local VLM risk analysis, and send alerts only when something actually matters.
 
 ![VLM_Monitors demo](./demo.png)
 
-這個專案現在解的核心痛點很直接：
+This project is built around a very specific practical need:
 
-- 舊手機不要丟，直接拿來當 `Camera SRC`
-- 多支手機畫面集中進同一個 `Situation Room`
-- 只用一台有算力的 service host 跑 Ollama VLM
-- 想分析哪一支畫面，就即時切換指定來源
-- 不想把影像送上雲，就維持本地優先架構
+- stop wasting old phones and use them as `Camera SRC` publishers
+- centralize multiple phone feeds inside one shared `Situation Room`
+- run Ollama VLM on only one compute-capable service host
+- switch analysis between sources in real time
+- keep the system local-first instead of sending video to a cloud service
 
-目前正式 runtime 是 Flask + Socket.IO + MediaMTX + Ollama，主入口是 `src/server.py`，不是舊的 Streamlit 路徑。
+The current production runtime is Flask + Socket.IO + MediaMTX + Ollama. The main entrypoint is `src/server.py`, not the older Streamlit path.
 
 ## Agent Onboarding First
 
-這個 repo 內建可分享的 onboarding skill：
+This repository includes a shareable onboarding skill:
 
 - [`skills/project-spec-onboarding/SKILL.md`](./skills/project-spec-onboarding/SKILL.md)
 
-如果你是第一次接手這個專案，或想讓 agent 快速理解它，先讓 agent 用這個 skill，從 `./spec/PROJECT_MAP.md` 開始，而不是先盲掃整個 codebase。
+If you are new to this project, or want an agent to understand it quickly, use this skill first and start from `./spec/PROJECT_MAP.md` instead of blindly scanning the whole codebase.
 
-範例提示詞：
+Example prompt:
 
 ```text
-請利用 $project-spec-onboarding，去初始化理解這整包專案，先從 ./spec/PROJECT_MAP.md 開始，再告訴我這個專案目前的核心架構、執行方式、以及之後修改時應該優先看哪些文件。
+Please use $project-spec-onboarding to initialize understanding of this repository. Start from ./spec/PROJECT_MAP.md, then summarize the current architecture, runtime flow, and which docs/files should be read first before making changes.
 ```
 
 English example:
@@ -34,13 +34,13 @@ English example:
 Use $project-spec-onboarding to initialize understanding of this repository. Start from ./spec/PROJECT_MAP.md, then summarize the current architecture, runtime flow, and which docs/files should be read first before making changes.
 ```
 
-## 你會得到什麼
+## What You Get
 
-- `Situation Room`：集中監看多支手機 / 瀏覽器來源
-- `Camera SRC`：手機開 HTTPS 頁面就能當分享鏡頭
-- 本地 Ollama VLM：只分析當前指定來源，不必所有來源一起燒算力
-- 遠端 HTTPS：可選 `ngrok` 或 `Tailscale`
-- Optional alerts：SMS / webhook
+- `Situation Room`: one shared dashboard for multiple phone/browser feeds
+- `Camera SRC`: a phone can become a camera publisher through an HTTPS page
+- local Ollama VLM: analyze only the currently selected source instead of burning compute on every feed
+- remote HTTPS access: choose `ngrok` or `Tailscale`
+- optional alerts: SMS / webhook
 - Optional sound detection
 
 ## Architecture
