@@ -16,15 +16,17 @@
   - camera publishing client
   - source currently selected for analysis
 
-## GStreamer Work
+## GStreamer And Remote Access Work
 
 - Prototype a remote-source frame tap using GStreamer instead of OpenCV `VideoCapture`.
+- Evaluate Tailscale as the preferred future remote-access path to replace or reduce ngrok dependence for long-running phone sessions.
 - Benchmark end-to-end latency for:
-  - AGX local camera playback
+  - service-host local camera playback
   - remote browser Camera SRC playback
   - remote browser source analysis
 - Investigate whether HLS proxy playback on phones should stay permanent or become a fallback only.
-- Review whether the local camera pipeline can reduce conversion overhead or use more Jetson-friendly memory flow.
+- Review whether the local camera pipeline can reduce conversion overhead or use more compute-friendly memory flow.
+- Document when Tailscale, HLS proxy, and direct LAN access should each be used operationally.
 
 ## Testing
 
