@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This file classifies existing Markdown documents so agents know what to read, link, or update without moving user-facing docs unexpectedly.
+This file classifies current Markdown documents so agents know what to read, link, or update without scattering project knowledge again.
 
 ## Canonical Progressive-Disclosure Entry
 
@@ -11,18 +11,21 @@ This file classifies existing Markdown documents so agents know what to read, li
 - `spec/MODULES.md`: Level 2 source ownership map.
 - `spec/RUNTIME.md`: Level 2 runtime and operations reference.
 - `spec/API.md`: Level 2 backend interface map.
-- `troubleshooting.md`: operational field notes and bug reminders.
-- `ToDoList.md`: pending engineering and optimization work.
+- `spec/TROUBLESHOOTING.md`: operational field notes and bug reminders.
+- `spec/TODO.md`: pending engineering and optimization work.
 - `spec/TESTING.md`: Level 2 verification guidance.
 
 ## Existing Root Docs
 
 - `README.md`: user-facing Chinese quick start and feature summary. Keep concise and aligned with current port `5000`.
-- `PROJECT_OVERVIEW.md`: broad technical reference. Useful for architecture context, but some details can drift from source; verify against code.
-- `DOCUMENTATION_INDEX.md`: human-facing doc index. Keep links relative and avoid references to missing files.
-- `PRD.md`: product requirements and intent.
-- `User_Manual.md`: end-user operation guidance.
-- `CLEANUP_SUMMARY.md`: historical cleanup notes.
+
+## Spec Supplemental Docs
+
+- `spec/PROJECT_OVERVIEW.md`: broad technical reference. Useful for architecture context, but some details can drift from source; verify against code.
+- `spec/DOCUMENTATION_INDEX.md`: human-facing doc index.
+- `spec/PRD.md`: product requirements and intent.
+- `spec/USER_MANUAL.md`: end-user operation guidance.
+- `spec/references/CLEANUP_SUMMARY.md`: historical cleanup notes.
 
 ## Existing `specs/`
 
@@ -36,7 +39,7 @@ This file classifies existing Markdown documents so agents know what to read, li
 
 ## Update Rules
 
-- Keep user-facing documents in their current locations.
+- Keep the public GitHub landing document at the project root as `README.md`.
 - Add architecture and agent-onboarding summaries under `spec/`.
 - Update `spec/PROJECT_MAP.md` whenever adding, renaming, or deprecating spec files.
 - Before changing MediaMTX/HLS/camera behavior, read `specs/FAQ.md`.

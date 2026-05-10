@@ -1,6 +1,6 @@
-# LLM Monitor v2
+# VLM_Monitors
 
-LLM Monitor v2 is a Jetson-focused, local-first video monitoring system with:
+VLM_Monitors is a Jetson-focused, local-first video monitoring system with:
 
 - AGX local camera capture
 - browser-based `Camera SRC` publishing from phones or laptops
@@ -10,6 +10,26 @@ LLM Monitor v2 is a Jetson-focused, local-first video monitoring system with:
 - optional Twilio SMS and webhook alerts
 
 The current production runtime is Flask + Socket.IO on port `5000`, with MediaMTX for RTSP/HLS/WebRTC and Ollama running on the host.
+
+## Agent Onboarding First
+
+This repository includes a shareable onboarding skill at:
+
+- [`skills/project-spec-onboarding/SKILL.md`](./skills/project-spec-onboarding/SKILL.md)
+
+If another user or agent wants to understand this project quickly, have the agent use the skill first and let it start from `./spec` instead of scanning the whole repository blindly.
+
+Example prompt:
+
+```text
+請利用 $project-spec-onboarding，去初始化理解這整包專案，先從 ./spec/PROJECT_MAP.md 開始，再告訴我這個專案目前的核心架構、執行方式、以及之後修改時應該優先看哪些文件。
+```
+
+Short English example:
+
+```text
+Use $project-spec-onboarding to initialize understanding of this repository. Start from ./spec/PROJECT_MAP.md, then summarize the current architecture, runtime flow, and which docs/files should be read first before making changes.
+```
 
 ## Current Highlights
 
@@ -228,9 +248,12 @@ Read project docs in this order:
 3. [spec/RUNTIME.md](./spec/RUNTIME.md)
 4. [spec/API.md](./spec/API.md)
 5. [spec/SITUATION_ROOM.md](./spec/SITUATION_ROOM.md)
-6. [troubleshooting.md](./troubleshooting.md)
-7. [ToDoList.md](./ToDoList.md)
-8. [specs/FAQ.md](./specs/FAQ.md)
+6. [spec/TROUBLESHOOTING.md](./spec/TROUBLESHOOTING.md)
+7. [spec/TODO.md](./spec/TODO.md)
+8. [spec/PROJECT_OVERVIEW.md](./spec/PROJECT_OVERVIEW.md)
+9. [spec/PRD.md](./spec/PRD.md)
+10. [spec/DOCUMENTATION_INDEX.md](./spec/DOCUMENTATION_INDEX.md)
+11. [specs/FAQ.md](./specs/FAQ.md)
 
 ## Current Limitations
 

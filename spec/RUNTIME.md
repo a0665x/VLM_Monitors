@@ -2,7 +2,7 @@
 
 ## Summary
 
-Use this as the quick reference for running, stopping, debugging, and validating LLM Monitor v2. For historical troubleshooting details, read `../specs/FAQ.md`.
+Use this as the quick reference for running, stopping, debugging, and validating VLM_Monitors. For historical troubleshooting details, read `../specs/FAQ.md`.
 
 ## Primary Commands
 

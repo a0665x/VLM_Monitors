@@ -1,4 +1,4 @@
-# Troubleshooting
+# VLM_Monitors Troubleshooting
 
 ## Purpose
 
@@ -91,7 +91,7 @@ Likely cause:
 
 - For phone camera sharing, HTTPS is mandatory in practice.
 - Browser heartbeat timers on phones are not perfectly reliable, especially after app switching or tab backgrounding.
-- If changing MediaMTX, HLS, or capture logic, review `specs/FAQ.md` and `troubleshooting.md` before refactoring.
+- If changing MediaMTX, HLS, or capture logic, review `../specs/FAQ.md` and `TROUBLESHOOTING.md` before refactoring.
 - If playback works but analysis fails, debug the selected-source tap path, not only the UI.
 
 ## When To Escalate To Deeper Engineering

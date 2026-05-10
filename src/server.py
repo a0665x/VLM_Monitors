@@ -1,4 +1,4 @@
-"""Flask Backend Server for LLM Monitor."""
+"""Flask Backend Server for VLM_Monitors."""
 import os
 import sys
 import time
@@ -1083,7 +1083,7 @@ def get_vision_models():
 def handle_connect():
     """Handle WebSocket connection."""
     logger.info(f"Client connected: {request.sid}")
-    emit('connected', {'message': 'Connected to LLM Monitor'})
+    emit('connected', {'message': 'Connected to VLM_Monitors'})
 
 @socketio.on('disconnect')
 def handle_disconnect():

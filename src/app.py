@@ -1,10 +1,10 @@
-"""Main entrypoint for the LLM Monitor."""
+"""Main entrypoint for VLM_Monitors."""
 import streamlit as st
 from modes import risk_detection, interactive_chat
 
 # Global Page Config
 st.set_page_config(
-    page_title="LLM Monitor",
+    page_title="VLM_Monitors",
     page_icon="👁️",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -44,7 +44,7 @@ def main():
 
     # Landing Page
     if st.session_state.mode is None:
-        st.title("LLM Monitor & Agent Hub")
+        st.title("VLM_Monitors & Agent Hub")
         st.markdown("### Select a Mode to Begin")
         
         col1, col2 = st.columns(2)

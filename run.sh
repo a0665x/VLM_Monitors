@@ -314,7 +314,7 @@ for tunnel in data.get("tunnels", []):
 print_urls() {
   detect_lan_ip
   printf '\n'
-  ok "LLM Monitor is ready"
+  ok "VLM_Monitors is ready"
   printf 'Web UI     : %s\n' "$WEB_URL"
   if [[ -n "$LAN_IP" ]]; then
     printf 'LAN UI     : http://%s:5000\n' "$LAN_IP"

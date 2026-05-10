@@ -2,7 +2,7 @@
 
 ## Summary
 
-LLM Monitor v2 is a Jetson-targeted local monitoring stack. The current production-shaped path is Docker -> `src/server.py` -> Flask/Socket.IO UI -> GStreamer camera capture -> MediaMTX RTSP/HLS/WebRTC -> Ollama VLM analysis and notifications.
+VLM_Monitors is a Jetson-targeted local monitoring stack. The current production-shaped path is Docker -> `src/server.py` -> Flask/Socket.IO UI -> GStreamer camera capture -> MediaMTX RTSP/HLS/WebRTC -> Ollama VLM analysis and notifications.
 
 ## Runtime Boundary
 

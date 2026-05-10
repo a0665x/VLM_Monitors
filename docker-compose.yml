@@ -1,5 +1,5 @@
 services:
-  # LLM Monitor (with integrated camera publisher)
+  # VLM_Monitors (with integrated camera publisher)
   llm-monitor:
     build: .
     image: llm-monitor:latest

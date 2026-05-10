@@ -1,8 +1,8 @@
-# LLM Monitor - Project Overview
+# VLM_Monitors - Project Overview
 
 ## 📋 Project Summary
 
-**LLM Monitor** is an AI-powered, real-time video monitoring system designed for NVIDIA Jetson devices (Orin Nano/AGX). It combines **live video streaming**, **local AI inference**, and **intelligent risk detection** with a privacy-first approach—all video processing happens on-device using Ollama models.
+**VLM_Monitors** is an AI-powered, real-time video monitoring system designed for NVIDIA Jetson devices (Orin Nano/AGX). It combines **live video streaming**, **local AI inference**, and **intelligent risk detection** with a privacy-first approach—all video processing happens on-device using Ollama models.
 
 ### Core Capabilities
 - 🎥 **Real-Time Video Streaming**: Low-latency RTSP/HLS streaming via MediaMTX
@@ -153,7 +153,7 @@
 
 ### 1. Clone \u0026 Setup
 ```bash
-cd /path/to/LLM_Monitor_v2
+cd /path/to/VLM_Monitors
 
 # Download MediaMTX (if not already present)
 # Place mediamtx binary in temp/mediamtx
@@ -185,7 +185,7 @@ This script will:
 ## 📂 Project Structure
 
 ```
-LLM_Monitor_v2/
+VLM_Monitors/
 ├── src/
 │   ├── app.py              # Flask application entry point
 │   ├── server.py           # Backend server logic, Socket.IO routes
@@ -206,7 +206,9 @@ LLM_Monitor_v2/
 ├── requirements.txt        # Python dependencies
 ├── run.sh                  # Canonical operations script
 ├── README.md               # User-facing readme (Chinese)
-├── PRD.md                  # Product requirements document
+├── spec/
+│   ├── PRD.md              # Product requirements document
+│   └── PROJECT_MAP.md      # Spec entrypoint
 └── specs/
     └── FAQ.md              # Technical FAQ and troubleshooting
 

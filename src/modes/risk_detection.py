@@ -1,4 +1,4 @@
-"""Streamlit entrypoint for the LLM Monitor."""
+"""Streamlit entrypoint for VLM_Monitors."""
 import streamlit as st
 import cv2
 import threading
@@ -389,7 +389,7 @@ def run():
             st.error(f"Monitor Error: {e}")
 
     # Main Dashboard
-    st.title("LLM Monitor - Risk Detection")
+    st.title("VLM_Monitors - Risk Detection")
 
     # Layout: Video (Left) | Intelligence (Right)
     col_video, col_intel = st.columns([2, 1])

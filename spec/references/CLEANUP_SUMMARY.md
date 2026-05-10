@@ -3,8 +3,8 @@
 ## Files Deleted (2026-02-08)
 
 ### Root Directory
-- ❌ `AGENTS.md` - Outdated, replaced by PROJECT_OVERVIEW.md
-- ❌ `README_FLASK.md` - Redundant, consolidated into PROJECT_OVERVIEW.md
+- ❌ `AGENTS.md` - Outdated, replaced by `spec/PROJECT_OVERVIEW.md`
+- ❌ `README_FLASK.md` - Redundant, consolidated into `spec/PROJECT_OVERVIEW.md`
 - ❌ `inspect_ollama_models.py` - Debug script, no longer needed
 - ❌ `reproduce_ollama_error.py` - Debug script, no longer needed  
 - ❌ `test_camera.py` - Replaced by proper test suite
@@ -12,7 +12,7 @@
 - ❌ `mediamtx.yml.bak-v2` - Backup config, no longer needed
 
 ### specs/ Directory
-- ❌ `specs/Agent.md` - Outdated architecture doc, replaced by PROJECT_OVERVIEW.md
+- ❌ `specs/Agent.md` - Outdated architecture doc, replaced by `spec/PROJECT_OVERVIEW.md`
 - ❌ `specs/tasks.md` - Old task list, replaced by brain artifacts
 - ❌ `specs/test.md` - Old test guide, replaced by FAQ.md
 
@@ -24,12 +24,12 @@
 ## Remaining Documentation Structure
 
 ### Core Documentation ✅
-- `PROJECT_OVERVIEW.md` - **Main technical reference**
+- `spec/PROJECT_OVERVIEW.md` - **Main technical reference**
 - `specs/FAQ.md` - **Troubleshooting guide**
-- `DOCUMENTATION_INDEX.md` - **Navigation hub**
+- `spec/DOCUMENTATION_INDEX.md` - **Navigation hub**
 - `README.md` - User guide (Chinese)
-- `PRD.md` - Product requirements
-- `User_Manual.md` - End user manual
+- `spec/PRD.md` - Product requirements
+- `spec/USER_MANUAL.md` - End user manual
 
 ### Configuration Files ✅
 - `mediamtx.yml` - MediaMTX server config (optimized)

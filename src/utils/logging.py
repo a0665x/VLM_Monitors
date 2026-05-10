@@ -1,4 +1,4 @@
-"""Logging helpers for the LLM Monitor MVP."""
+"""Logging helpers for the VLM_Monitors runtime."""
 from __future__ import annotations
 
 import logging

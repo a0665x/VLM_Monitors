@@ -1,8 +1,8 @@
-# LLM Monitor - User Manual
+# VLM_Monitors - User Manual
 
 ## 🛠️ Installation
 
-You can run the LLM Monitor either locally (Python) or using Docker.
+You can run VLM_Monitors either locally (Python) or using Docker.
 
 ### Option A: Docker Installation (Recommended)
 This is the easiest way to get started.
@@ -28,7 +28,7 @@ This is the easiest way to get started.
     ```bash
     # Clone the repository (if you haven't already)
     # git clone ...
-    # cd LLM_Monitor
+    # cd VLM_Monitors
 
     # Create a virtual environment
     python3 -m venv .venv

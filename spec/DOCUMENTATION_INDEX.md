@@ -1,4 +1,4 @@
-# Documentation Index - LLM Monitor Project
+# Documentation Index - VLM_Monitors
 
 > Complete documentation reference for developers and AI agents.
 
@@ -8,13 +8,13 @@
 
 ### For New Developers / AI Agents
 **Start Here**: 
-1. [`spec/PROJECT_MAP.md`](./spec/PROJECT_MAP.md) - Progressive-disclosure onboarding entrypoint
-2. [`spec/ARCHITECTURE.md`](./spec/ARCHITECTURE.md) - Current runtime architecture and flow
-3. [`specs/FAQ.md`](./specs/FAQ.md) - Critical MediaMTX/HLS troubleshooting lessons
+1. [`PROJECT_MAP.md`](./PROJECT_MAP.md) - Progressive-disclosure onboarding entrypoint
+2. [`ARCHITECTURE.md`](./ARCHITECTURE.md) - Current runtime architecture and flow
+3. [`../specs/FAQ.md`](../specs/FAQ.md) - Critical MediaMTX/HLS troubleshooting lessons
 
 ### For End Users
-- [`README.md`](./README.md) - Quick start guide (Chinese)
-- [`User_Manual.md`](./User_Manual.md) - User manual
+- [`../README.md`](../README.md) - Quick start guide
+- [`USER_MANUAL.md`](./USER_MANUAL.md) - User manual
 
 ---
 
@@ -23,16 +23,18 @@
 ### Core Documentation
 | File | Purpose | Audience |
 |------|---------|----------|
-| **[spec/PROJECT_MAP.md](./spec/PROJECT_MAP.md)** | Level 1 onboarding map and change guide | Developers, AI Agents |
-| **[spec/ARCHITECTURE.md](./spec/ARCHITECTURE.md)** | Current runtime architecture and flow | Developers, AI Agents |
-| **[spec/MODULES.md](./spec/MODULES.md)** | Source tree ownership map | Developers, AI Agents |
-| **[spec/RUNTIME.md](./spec/RUNTIME.md)** | Commands, ports, logs, and runtime dependencies | Developers, Operators |
-| **[spec/API.md](./spec/API.md)** | REST and Socket.IO endpoint map | Developers |
-| **[spec/TESTING.md](./spec/TESTING.md)** | Automated and manual verification guide | Developers, AI Agents |
+| **[PROJECT_MAP.md](./PROJECT_MAP.md)** | Level 1 onboarding map and change guide | Developers, AI Agents |
+| **[ARCHITECTURE.md](./ARCHITECTURE.md)** | Current runtime architecture and flow | Developers, AI Agents |
+| **[MODULES.md](./MODULES.md)** | Source tree ownership map | Developers, AI Agents |
+| **[RUNTIME.md](./RUNTIME.md)** | Commands, ports, logs, and runtime dependencies | Developers, Operators |
+| **[API.md](./API.md)** | REST and Socket.IO endpoint map | Developers |
+| **[TESTING.md](./TESTING.md)** | Automated and manual verification guide | Developers, AI Agents |
 | **[PROJECT_OVERVIEW.md](./PROJECT_OVERVIEW.md)** | Broad technical reference including architecture, data flow, performance notes | Developers, AI Agents |
-| **[specs/FAQ.md](./specs/FAQ.md)** | Troubleshooting guide with lessons learned and common mistakes to avoid | Developers, AI Agents |
+| **[TROUBLESHOOTING.md](./TROUBLESHOOTING.md)** | Recent field fixes, failure modes, and debugging reminders | Developers, Operators |
+| **[TODO.md](./TODO.md)** | Follow-up engineering and optimization backlog | Developers |
+| **[specs/FAQ.md](../specs/FAQ.md)** | Troubleshooting guide with lessons learned and common mistakes to avoid | Developers, AI Agents |
 | **[PRD.md](./PRD.md)** | Product requirements document | Product Managers, Developers |
-| **[README.md](./README.md)** | Quick start and usage guide (Chinese) | End Users |
+| **[../README.md](../README.md)** | Quick start and usage guide | End Users |
 
 ### Development Artifacts
 | File | Purpose | Created By |
@@ -44,8 +46,8 @@
 ### Additional Resources
 | File | Purpose |
 |------|---------|
-| **[User_Manual.md](./User_Manual.md)** | End user manual |
-| **[spec/references/documentation-inventory.md](./spec/references/documentation-inventory.md)** | Classification of existing docs and stale references |
+| **[USER_MANUAL.md](./USER_MANUAL.md)** | End user manual |
+| **[references/documentation-inventory.md](./references/documentation-inventory.md)** | Classification of existing docs and stale references |
 
 ---
 
@@ -53,17 +55,17 @@
 
 ### Before Making Any Changes, Read:
 
-1. **[specs/FAQ.md](./specs/FAQ.md) - Section: "Common Mistakes to Avoid"**
+1. **[../specs/FAQ.md](../specs/FAQ.md) - Section: "Common Mistakes to Avoid"**
    - MediaMTX configuration pitfalls
    - HLS 404 debugging (hlsAlwaysRemux issue)
    - Video pipeline optimization mistakes
 
-2. **[spec/ARCHITECTURE.md](./spec/ARCHITECTURE.md)**
+2. **[ARCHITECTURE.md](./ARCHITECTURE.md)**
    - Video pipeline data flow
    - MediaMTX configuration requirements
    - Performance benchmarks and limitations
 
-3. **[spec/RUNTIME.md](./spec/RUNTIME.md)**
+3. **[RUNTIME.md](./RUNTIME.md)**
    - Current Docker runtime, ports, logs, and verification commands
 
 ---
@@ -71,24 +73,24 @@
 ## 📋 Key Topics Index
 
 ### Video Streaming
-- **Architecture**: [`spec/ARCHITECTURE.md`](./spec/ARCHITECTURE.md)
-- **Troubleshooting**: [`specs/FAQ.md`](./specs/FAQ.md)
-- **Runtime checks**: [`spec/RUNTIME.md`](./spec/RUNTIME.md)
+- **Architecture**: [`ARCHITECTURE.md`](./ARCHITECTURE.md)
+- **Troubleshooting**: [`../specs/FAQ.md`](../specs/FAQ.md)
+- **Runtime checks**: [`RUNTIME.md`](./RUNTIME.md)
 
 ### MediaMTX Configuration
-- **Settings**: [`spec/RUNTIME.md`](./spec/RUNTIME.md)
-- **Critical Issues**: [`specs/FAQ.md`](./specs/FAQ.md)
-- **HLS 404 Fix**: [`specs/FAQ.md`](./specs/FAQ.md)
+- **Settings**: [`RUNTIME.md`](./RUNTIME.md)
+- **Critical Issues**: [`../specs/FAQ.md`](../specs/FAQ.md)
+- **HLS 404 Fix**: [`../specs/FAQ.md`](../specs/FAQ.md)
 
 ### Performance Optimization
 - **Benchmarks**: [`PROJECT_OVERVIEW.md`](./PROJECT_OVERVIEW.md)
-- **HLS Latency**: [`specs/FAQ.md`](./specs/FAQ.md)
-- **System Resources**: [`spec/RUNTIME.md`](./spec/RUNTIME.md)
+- **HLS Latency**: [`../specs/FAQ.md`](../specs/FAQ.md)
+- **System Resources**: [`RUNTIME.md`](./RUNTIME.md)
 
 ### Debugging
-- **Tools**: [`spec/RUNTIME.md`](./spec/RUNTIME.md)
-- **Docker Issues**: [`specs/FAQ.md`](./specs/FAQ.md)
-- **Lessons**: [`specs/FAQ.md`](./specs/FAQ.md)
+- **Tools**: [`RUNTIME.md`](./RUNTIME.md)
+- **Docker Issues**: [`../specs/FAQ.md`](../specs/FAQ.md)
+- **Lessons**: [`../specs/FAQ.md`](../specs/FAQ.md)
 
 ---
 
@@ -108,15 +110,15 @@
 ### When to Update Documentation
 
 **Must Update**:
-- After fixing a critical bug → Add to [`specs/FAQ.md`](./specs/FAQ.md)
-- After major architectural change → Update [`spec/ARCHITECTURE.md`](./spec/ARCHITECTURE.md) and [`PROJECT_OVERVIEW.md`](./PROJECT_OVERVIEW.md)
+- After fixing a critical bug → Add to [`../specs/FAQ.md`](../specs/FAQ.md)
+- After major architectural change → Update [`ARCHITECTURE.md`](./ARCHITECTURE.md) and [`PROJECT_OVERVIEW.md`](./PROJECT_OVERVIEW.md)
 - After completing work session → Create/update `walkthrough.md`
-- When adding new features → Update [`PRD.md`](./PRD.md), [`README.md`](./README.md), and relevant `spec/` files
+- When adding new features → Update [`PRD.md`](./PRD.md), [`../README.md`](../README.md), and relevant `spec/` files
 
 **Optional**:
 - Minor bug fixes → Consider adding to FAQ if lesson learned
 - Code refactoring → Update if impacts architecture
-- Dependency updates → Note in [`spec/RUNTIME.md`](./spec/RUNTIME.md) if significant
+- Dependency updates → Note in [`RUNTIME.md`](./RUNTIME.md) if significant
 
 ### Documentation Standards
 
@@ -131,19 +133,19 @@
 ## 🎯 Quick Reference - Most Common Tasks
 
 ### Video Stream Not Working
-→ [`specs/FAQ.md`](./specs/FAQ.md)
+→ [`../specs/FAQ.md`](../specs/FAQ.md)
 
 ### HLS Returns 404
-→ [`specs/FAQ.md`](./specs/FAQ.md)
+→ [`../specs/FAQ.md`](../specs/FAQ.md)
 
 ### Reduce Video Latency
-→ [`specs/FAQ.md`](./specs/FAQ.md)
+→ [`../specs/FAQ.md`](../specs/FAQ.md)
 
 ### Docker Container Issues
-→ [`specs/FAQ.md`](./specs/FAQ.md)
+→ [`../specs/FAQ.md`](../specs/FAQ.md)
 
 ### Understanding Architecture
-→ [`spec/PROJECT_MAP.md`](./spec/PROJECT_MAP.md)
+→ [`PROJECT_MAP.md`](./PROJECT_MAP.md)
 
 ---
 

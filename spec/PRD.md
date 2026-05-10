@@ -1,7 +1,7 @@
-# Product Requirements Document (PRD) - LLM Monitor
+# Product Requirements Document (PRD) - VLM_Monitors
 
 ## 1. Introduction
-LLM Monitor is a local-first camera monitoring and agent app with two modes: a risk detection dashboard and an interactive chat agent. It is designed for Jetson-class devices, keeps video on-device, and uses Ollama for on-box vision inference.
+VLM_Monitors is a local-first camera monitoring and agent app with two modes: a risk detection dashboard and an interactive chat agent. It is designed for Jetson-class devices, keeps video on-device, and uses Ollama for on-box vision inference.
 
 ## 2. Goals & Objectives
 - **Real-time Monitoring**: Provide a continuous live video feed with low-latency streaming.

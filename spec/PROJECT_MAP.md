@@ -2,11 +2,11 @@
 
 ## Name
 
-LLM Monitor v2
+VLM_Monitors
 
 ## Description
 
-LLM Monitor v2 is a local-first video monitoring and AI agent application for NVIDIA Jetson devices. It combines live camera capture, low-latency RTSP/HLS streaming, local Ollama VLM risk analysis, optional sound detection, Twilio/webhook alerts, and an interactive LLM chat mode with tool calling.
+VLM_Monitors is a local-first video monitoring and AI agent application for NVIDIA Jetson devices. It combines live camera capture, low-latency RTSP/HLS streaming, local Ollama VLM risk analysis, optional sound detection, Twilio/webhook alerts, and an interactive LLM chat mode with tool calling.
 
 The current runtime is a Flask + Socket.IO backend served by `src/server.py` on port `5000`. Some older Streamlit-oriented files still exist, especially `src/app.py` and `src/modes/*`; treat them as legacy or alternate UI code unless a task explicitly targets Streamlit.
 
@@ -17,8 +17,12 @@ The current runtime is a Flask + Socket.IO backend served by `src/server.py` on 
 - [Runtime](./RUNTIME.md): Docker commands, ports, local dependencies, logs, and configuration.
 - [API](./API.md): REST and Socket.IO interface exposed by `src/server.py`.
 - [Situation Room](./SITUATION_ROOM.md): current multi-source Camera SRC / Situation Room behavior and remaining gaps.
-- [Troubleshooting](../troubleshooting.md): recent field fixes, likely failure modes, and debugging reminders.
-- [To Do List](../ToDoList.md): follow-up engineering work and optimization backlog.
+- [Troubleshooting](./TROUBLESHOOTING.md): recent field fixes, likely failure modes, and debugging reminders.
+- [To Do List](./TODO.md): follow-up engineering work and optimization backlog.
+- [Project Overview](./PROJECT_OVERVIEW.md): broader technical narrative and performance context.
+- [PRD](./PRD.md): product requirements and product intent.
+- [Documentation Index](./DOCUMENTATION_INDEX.md): human-facing navigation map for project docs.
+- [User Manual](./USER_MANUAL.md): operator-oriented usage guide.
 - [Testing](./TESTING.md): available tests and verification commands.
 - [Known Issues](./KNOWN_ISSUES.md): current browser, ngrok, and multi-source caveats.
 - [Documentation Inventory](./references/documentation-inventory.md): existing root docs and how they map into this `./spec` structure.
@@ -31,8 +35,8 @@ Use the spec in this order:
 1. `spec/PROJECT_MAP.md`: level-1 orientation and file map.
 2. Level-2 behavior docs:
    `ARCHITECTURE.md`, `MODULES.md`, `RUNTIME.md`, `API.md`, `SITUATION_ROOM.md`, `TESTING.md`, `KNOWN_ISSUES.md`.
-3. Root operational supplements:
-   `troubleshooting.md`, `ToDoList.md`.
+3. Spec supplements:
+   `TROUBLESHOOTING.md`, `TODO.md`, `PROJECT_OVERVIEW.md`, `PRD.md`, `DOCUMENTATION_INDEX.md`, `USER_MANUAL.md`.
 4. Deep references:
    `spec/references/*` and legacy `specs/FAQ.md`.
 
@@ -68,8 +72,12 @@ Use the spec in this order:
 - `static/index.html`, `static/css/style.css`, `static/js/app.js`: current web UI assets.
 - `Dockerfile`, `docker-compose.yml`: container image and host-network runtime.
 - `run.sh`: primary operator script for startup, restart, status, logs, rebuild, and shutdown.
-- `troubleshooting.md`: practical debugging notes from recent runtime fixes.
-- `ToDoList.md`: pending engineering improvements and refactors.
+- `spec/TROUBLESHOOTING.md`: practical debugging notes from recent runtime fixes.
+- `spec/TODO.md`: pending engineering improvements and refactors.
+- `spec/PROJECT_OVERVIEW.md`: broader technical reference.
+- `spec/PRD.md`: product requirements.
+- `spec/DOCUMENTATION_INDEX.md`: documentation navigation map.
+- `spec/USER_MANUAL.md`: end-user or operator manual.
 - `mediamtx.yml`: RTSP/HLS server configuration.
 - `specs/FAQ.md`: existing deep troubleshooting guide.
 

@@ -9,3 +9,5 @@ twilio_config.ini
 twilio_config.txt
 data/ngrok_url.txt
 data/ngrok_webrtc_url.txt
+
+.codex/
