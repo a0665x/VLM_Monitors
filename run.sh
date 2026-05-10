@@ -106,18 +106,99 @@ require_file() {
   [[ -e "$path" ]] || fail "Required path not found: $path"
 }
 
+print_install_help() {
+  local topic="$1"
+  printf '\n'
+  yellow "Install / fix hint for: $topic"
+  case "$topic" in
+    docker)
+      printf '%s\n' \
+        "  Ubuntu example:" \
+        "    sudo apt-get update" \
+        "    sudo apt-get install -y docker.io docker-compose-plugin" \
+        "    sudo systemctl enable --now docker" \
+        "  Verify:" \
+        "    docker --version" \
+        "    docker compose version"
+      ;;
+    curl)
+      printf '%s\n' \
+        "  Ubuntu example:" \
+        "    sudo apt-get update" \
+        "    sudo apt-get install -y curl" \
+        "  Verify:" \
+        "    curl --version"
+      ;;
+    nvidia-runtime)
+      printf '%s\n' \
+        "  Install NVIDIA Container Toolkit for your Linux distribution." \
+        "  Typical verification:" \
+        "    docker info --format '{{json .Runtimes}}'" \
+        "  Expected:" \
+        "    output includes 'nvidia'"
+      ;;
+    ollama)
+      printf '%s\n' \
+        "  Install Ollama from https://ollama.com/download" \
+        "  Start service:" \
+        "    ollama serve" \
+        "  Pull a vision model:" \
+        "    ollama pull bakllava" \
+        "  Verify:" \
+        "    curl -fsSL http://localhost:11434/api/tags"
+      ;;
+    mediamtx)
+      printf '%s\n' \
+        "  Download a Linux MediaMTX release from the official repository." \
+        "  Place the binary at:" \
+        "    temp/mediamtx" \
+        "  Make it executable:" \
+        "    chmod +x temp/mediamtx" \
+        "  Verify:" \
+        "    test -x temp/mediamtx"
+      ;;
+    camera)
+      printf '%s\n' \
+        "  Connect a USB camera or adjust docker-compose.yml / application config." \
+        "  Verify:" \
+        "    test -e /dev/video0" \
+        "    v4l2-ctl --list-devices"
+      ;;
+    *)
+      ;;
+  esac
+}
+
 check_prereqs() {
   step "Checking project prerequisites"
   require_file "Dockerfile"
   require_file "docker-compose.yml"
   require_file "mediamtx.yml"
-  require_file "temp/mediamtx"
+  if [[ ! -e "temp/mediamtx" ]]; then
+    print_install_help mediamtx
+    fail "Required path not found: temp/mediamtx"
+  fi
 
-  [[ -x "temp/mediamtx" ]] || fail "temp/mediamtx exists but is not executable"
-  command_exists docker || fail "docker not found"
-  command_exists curl || fail "curl not found"
-  docker compose version >/dev/null || fail "docker compose is not available"
-  docker info >/dev/null || fail "Docker daemon is not reachable"
+  if [[ ! -x "temp/mediamtx" ]]; then
+    print_install_help mediamtx
+    fail "temp/mediamtx exists but is not executable"
+  fi
+  if ! command_exists docker; then
+    print_install_help docker
+    fail "docker not found"
+  fi
+  if ! command_exists curl; then
+    print_install_help curl
+    fail "curl not found"
+  fi
+  if ! docker compose version >/dev/null 2>&1; then
+    print_install_help docker
+    fail "docker compose is not available"
+  fi
+  if ! docker info >/dev/null 2>&1; then
+    print_install_help docker
+    fail "Docker daemon is not reachable"
+  fi
 
   mkdir -p data logs temp
   ok "Project prerequisites look good"
@@ -128,13 +209,17 @@ check_nvidia_runtime() {
   if docker info --format '{{json .Runtimes}}' 2>/dev/null | grep -q '"nvidia"'; then
     ok "NVIDIA runtime is available"
   else
+    print_install_help nvidia-runtime
     fail "NVIDIA runtime is missing. Install NVIDIA Container Toolkit and configure Docker runtime before starting this project."
   fi
 }
 
 check_host_devices() {
   step "Checking host camera and audio devices"
-  [[ -e /dev/video0 ]] || fail "/dev/video0 not found; connect a camera or update docker-compose.yml VIDEO_DEVICE"
+  if [[ ! -e /dev/video0 ]]; then
+    print_install_help camera
+    fail "/dev/video0 not found; connect a camera or update docker-compose.yml VIDEO_DEVICE"
+  fi
   if [[ -e /dev/snd ]]; then
     ok "Audio device tree exists at /dev/snd"
   else
@@ -148,6 +233,7 @@ check_ollama() {
   if curl -fsS --max-time 3 "$OLLAMA_URL/api/tags" >/dev/null; then
     ok "Ollama is reachable at $OLLAMA_URL"
   else
+    print_install_help ollama
     fail "Ollama is not reachable at $OLLAMA_URL. Start it first, for example: ollama serve"
   fi
 }
@@ -338,7 +424,7 @@ print_urls() {
   printf 'Ollama     : %s\n' "$OLLAMA_URL"
   printf '\n'
   printf 'How to open:\n'
-  printf '  1. Situation Room host on this AGX: %s\n' "$WEB_URL"
+  printf '  1. Situation Room service host     : %s\n' "$WEB_URL"
   if [[ -n "$LAN_IP" ]]; then
     printf '  2. Same-network desktop UI       : http://%s:5000\n' "$LAN_IP"
   fi

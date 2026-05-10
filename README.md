@@ -1,8 +1,8 @@
 # VLM_Monitors
 
-VLM_Monitors is a Jetson-focused, local-first video monitoring system with:
+VLM_Monitors is a local-first video monitoring system built around one compute-capable service host with:
 
-- AGX local camera capture
+- local camera capture on the service host
 - browser-based `Camera SRC` publishing from phones or laptops
 - shared `Situation Room` monitoring UI
 - local Ollama VLM risk analysis
@@ -65,10 +65,10 @@ selected source
 
 Required:
 
-- Linux host, ideally NVIDIA Jetson AGX / Orin class device
+- one Linux service host with enough compute to run local vision models
 - Docker
 - Docker Compose
-- NVIDIA container runtime configured for Docker
+- NVIDIA container runtime configured for Docker on the currently tested path
 - Ollama installed on the host and reachable at `http://localhost:11434`
 - USB camera available at `/dev/video0`
 - `temp/mediamtx` present and executable
@@ -107,16 +107,18 @@ Start Ollama on the host:
 ollama serve
 ```
 
-Pull at least one vision model, for example:
+Pull at least one small vision model first, for example:
 
 ```bash
-ollama pull qwen3-vl:8b
+ollama pull bakllava
 ```
 
-Other usable vision model examples:
+Other usable vision model suggestions:
 
-- `llama3.2-vision:11b`
+- `bakllava`
 - `minicpm-v:8b`
+- `llama3.2-vision:11b`
+- `qwen3-vl:8b`
 
 ## ngrok Setup
 
@@ -136,6 +138,8 @@ When `ngrok` is installed, `./run.sh up` will try to create:
 Phones should use the HTTPS `Public UI`, not LAN `http://...:5000`.
 
 ## Quick Start
+
+`./run.sh up` already performs preflight checks. If Docker, Ollama, MediaMTX, camera devices, or NVIDIA runtime are missing, it should stop early and print what to install or verify first.
 
 Start the full stack:
 
@@ -188,7 +192,7 @@ Remote / phone:
 
 ## How To Use
 
-### AGX Host
+### Service Host
 
 1. Open `http://localhost:5000`
 2. Enter `Situation Room`
@@ -210,7 +214,7 @@ Remote / phone:
 1. Open the HTTPS `Public UI`
 2. Enter `Situation Room`
 3. View the shared dashboard
-4. Be aware that source selection affects the same backend state as the AGX host
+4. Be aware that source selection affects the same backend state as the service host
 
 ## Alerts
 
@@ -227,17 +231,11 @@ By default, SMS and webhook toggles are off. Configure them in the UI before ena
 - Shared `Situation Room` means multiple clients can control the same monitored source.
 - Remote playback and remote analysis are related but not identical paths; a tile can appear before the selected-source analysis tap has fully warmed up.
 - If model selection changes, the UI should reflect the configured model immediately, while completed results still depend on the next inference cycle.
+- The currently tested deployment path expects Docker + NVIDIA runtime + local Ollama on the service host.
 
 ## Repository Hygiene Before Publishing
 
-This project contains local-only files and sensitive config examples. Before pushing to GitHub, review:
-
-- `twilio_config.ini`
-- `twilio_config.txt`
-- `data/ngrok_url.txt`
-- `data/ngrok_webrtc_url.txt`
-
-These should not be committed with real credentials or machine-specific URLs.
+This project can generate local-only files and sensitive config values. Before pushing to GitHub, verify that machine-specific URLs, secrets, and temporary runtime artifacts are excluded from the commit.
 
 ## Documentation
 
