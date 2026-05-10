@@ -23,7 +23,7 @@ OLLAMA_URL="${OLLAMA_URL:-http://localhost:11434}"
 LAN_IP=""
 
 FOLLOW_LOGS=false
-START_NGROK=true
+TUNNEL_PROVIDER="auto"
 FORCE_BUILD=true
 
 while [[ $# -gt 0 ]]; do
@@ -31,8 +31,14 @@ while [[ $# -gt 0 ]]; do
     --follow|-f)
       FOLLOW_LOGS=true
       ;;
-    --no-ngrok)
-      START_NGROK=false
+    --no-ngrok|--no-tunnel)
+      TUNNEL_PROVIDER="none"
+      ;;
+    --ngrok)
+      TUNNEL_PROVIDER="ngrok"
+      ;;
+    --tailscale)
+      TUNNEL_PROVIDER="tailscale"
       ;;
     --no-build)
       FORCE_BUILD=false
@@ -83,8 +89,91 @@ detect_lan_ip() {
   LAN_IP="$ip_candidate"
 }
 
+clear_public_url_cache() {
+  rm -f data/ngrok_url.txt data/ngrok_webrtc_url.txt data/public_url_provider.txt
+}
+
+write_public_url_cache() {
+  local provider="$1"
+  local ui_url="$2"
+  local webrtc_url="$3"
+
+  mkdir -p data
+  clear_public_url_cache
+  printf '%s\n' "$provider" > data/public_url_provider.txt
+  printf '%s\n' "$ui_url" > data/ngrok_url.txt
+  printf '%s\n' "$webrtc_url" > data/ngrok_webrtc_url.txt
+}
+
+trim_trailing_dot() {
+  local value="$1"
+  printf '%s' "${value%.}"
+}
+
+choose_tunnel_provider() {
+  if [[ "$TUNNEL_PROVIDER" != "auto" ]]; then
+    return
+  fi
+
+  if [[ ! -t 0 || ! -t 1 ]]; then
+    if command_exists ngrok; then
+      TUNNEL_PROVIDER="ngrok"
+    elif command_exists tailscale; then
+      TUNNEL_PROVIDER="tailscale"
+    else
+      TUNNEL_PROVIDER="none"
+    fi
+    return
+  fi
+
+  local options=("ngrok" "tailscale")
+  local labels=("ngrok HTTPS" "Tailscale HTTPS")
+  local index=0
+  local key=""
+
+  printf '\n'
+  step "Choose remote HTTPS tunnel"
+  printf 'Use left/right arrows, then press Enter.\n'
+  printf '\n'
+
+  while true; do
+    printf '\033[3A\r'
+    printf '\033[2K'
+    step "Choose remote HTTPS tunnel"
+    printf '\033[2KUse left/right arrows, then press Enter.\n'
+    printf '\033[2K'
+    if [[ $index -eq 0 ]]; then
+      printf '  [ %s ]    %s\n' "${labels[0]}" "${labels[1]}"
+    else
+      printf '  %s    [ %s ]\n' "${labels[0]}" "${labels[1]}"
+    fi
+
+    IFS= read -rsn1 key || true
+    if [[ "$key" == $'\x1b' ]]; then
+      local rest=""
+      IFS= read -rsn2 -t 0.1 rest || true
+      key+="$rest"
+    fi
+
+    case "$key" in
+      $'\x1b[D') index=0 ;;
+      $'\x1b[C') index=1 ;;
+      ""|$'\n') break ;;
+      *) ;;
+    esac
+  done
+
+  printf '\033[3B'
+  TUNNEL_PROVIDER="${options[$index]}"
+  ok "Selected tunnel provider: $TUNNEL_PROVIDER"
+}
+
 compose() {
   docker compose "$@"
+}
+
+container_exists_by_name() {
+  docker ps -aq --filter "name=^/${CONTAINER_NAME}$" 2>/dev/null || true
 }
 
 container_id() {
@@ -164,6 +253,27 @@ print_install_help() {
         "    test -e /dev/video0" \
         "    v4l2-ctl --list-devices"
       ;;
+    ngrok)
+      printf '%s\n' \
+        "  Install ngrok from the official Linux setup guide:" \
+        "    https://dashboard.ngrok.com/get-started/setup/linux" \
+        "  Authenticate once:" \
+        "    ngrok config add-authtoken <YOUR_NGROK_AUTHTOKEN>" \
+        "  Verify:" \
+        "    ngrok version" \
+        "    test -f ~/.config/ngrok/ngrok.yml || test -f ~/.ngrok2/ngrok.yml"
+      ;;
+    tailscale)
+      printf '%s\n' \
+        "  Ubuntu example:" \
+        "    curl -fsSL https://tailscale.com/install.sh | sh" \
+        "    sudo tailscale up" \
+        "  If internet-facing HTTPS is required, make sure Funnel is enabled for this node." \
+        "  Verify:" \
+        "    tailscale --version" \
+        "    tailscale status" \
+        "    tailscale funnel --help"
+      ;;
     *)
       ;;
   esac
@@ -238,20 +348,70 @@ check_ollama() {
   fi
 }
 
+stop_ngrok_processes() {
+  if pgrep -x ngrok >/dev/null 2>&1; then
+    step "Stopping existing ngrok processes"
+    pkill -x ngrok >/dev/null 2>&1 || true
+    sleep 1
+    ok "Existing ngrok processes stopped"
+  fi
+}
+
+remove_conflicting_named_container() {
+  local existing_id=""
+  existing_id="$(container_exists_by_name)"
+  if [[ -n "$existing_id" ]]; then
+    step "Removing conflicting container $CONTAINER_NAME"
+    docker rm -f "$CONTAINER_NAME" >/dev/null
+    ok "Removed conflicting container $CONTAINER_NAME"
+  fi
+}
+
+clean_runtime_state() {
+  stop_ngrok_processes
+  clear_public_url_cache
+  remove_conflicting_named_container
+}
+
+prompt_yes_no() {
+  local prompt="$1"
+  local default="${2:-N}"
+  local reply=""
+
+  if [[ ! -t 0 || ! -t 1 ]]; then
+    [[ "$default" =~ ^[Yy]$ ]]
+    return
+  fi
+
+  while true; do
+    read -r -p "$prompt [y/N]: " reply || true
+    reply="${reply:-$default}"
+    case "$reply" in
+      y|Y|yes|YES) return 0 ;;
+      n|N|no|NO) return 1 ;;
+      *) warn "Please answer y or n." ;;
+    esac
+  done
+}
+
 wait_http() {
   local label="$1"
   local url="$2"
   local attempts="${3:-45}"
   local delay="${4:-2}"
+  local elapsed=0
 
-  step "Waiting for $label"
   for _ in $(seq 1 "$attempts"); do
-    if curl -fsS --max-time 3 "$url" >/dev/null; then
+    printf '\r\033[2K\033[34m[STEP]\033[0m Waiting for %s... %ss' "$label" "$elapsed"
+    if curl -fs --max-time 3 "$url" >/dev/null 2>&1; then
+      printf '\r\033[2K'
       ok "$label is reachable: $url"
       return 0
     fi
     sleep "$delay"
+    elapsed=$((elapsed + delay))
   done
+  printf '\r\033[2K\n'
   warn "Recent container logs:"
   compose logs --tail 80 "$SERVICE_NAME" || true
   fail "$label did not become reachable: $url"
@@ -263,15 +423,19 @@ wait_tcp() {
   local port="$3"
   local attempts="${4:-30}"
   local delay="${5:-2}"
+  local elapsed=0
 
-  step "Waiting for $label"
   for _ in $(seq 1 "$attempts"); do
+    printf '\r\033[2K\033[34m[STEP]\033[0m Waiting for %s... %ss' "$label" "$elapsed"
     if (echo >"/dev/tcp/$host/$port") >/dev/null 2>&1; then
+      printf '\r\033[2K'
       ok "$label is accepting TCP connections at $host:$port"
       return 0
     fi
     sleep "$delay"
+    elapsed=$((elapsed + delay))
   done
+  printf '\r\033[2K\n'
   warn "Recent container logs:"
   compose logs --tail 80 "$SERVICE_NAME" || true
   fail "$label did not open TCP port $host:$port"
@@ -309,20 +473,22 @@ check_device_apis() {
   wait_http "audio device API" "$API_AUDIO_DEVICES_URL" 20 2
 }
 
-start_ngrok_if_available() {
-  if [[ "$START_NGROK" != true ]]; then
-    return
-  fi
-
-  step "Checking optional ngrok"
+start_ngrok_tunnel() {
+  step "Starting ngrok HTTPS tunnels"
   if ! command_exists ngrok; then
-    warn "ngrok not found; skipping public URL"
-    return
+    print_install_help ngrok
+    fail "ngrok not found"
   fi
 
-  pkill -x ngrok >/dev/null 2>&1 || true
-  rm -f data/ngrok_url.txt data/ngrok_webrtc_url.txt
-  mkdir -p data
+  local ngrok_user_config=""
+  ngrok_user_config="$(detect_ngrok_user_config)"
+  if [[ -z "$ngrok_user_config" ]]; then
+    print_install_help ngrok
+    fail "ngrok is installed but no authenticated config was found"
+  fi
+
+  clear_public_url_cache
+  mkdir -p data logs
   rm -f logs/ngrok-ui.log logs/ngrok-webrtc.log
   cat > data/ngrok.yml <<'EOF'
 version: "2"
@@ -335,19 +501,14 @@ tunnels:
     proto: http
     addr: 8889
 EOF
-  local ngrok_user_config=""
-  local ngrok_config_arg="data/ngrok.yml"
-  ngrok_user_config="$(detect_ngrok_user_config)"
-  if [[ -n "$ngrok_user_config" ]]; then
-    ngrok_config_arg="${ngrok_user_config},data/ngrok.yml"
-  fi
-  nohup ngrok start --all --config "$ngrok_config_arg" --log=stdout > logs/ngrok-ui.log 2>&1 &
+
+  nohup ngrok start --all --config "${ngrok_user_config},data/ngrok.yml" --log=stdout > logs/ngrok-ui.log 2>&1 &
   sleep 3
 
   local tunnels_json=""
   tunnels_json="$(curl -fsS --max-time 3 localhost:4040/api/tunnels 2>/dev/null || true)"
 
-  local ngrok_url
+  local ngrok_url=""
   ngrok_url="$(printf '%s' "$tunnels_json" | python3 -c 'import json,sys
 try:
     data=json.load(sys.stdin)
@@ -359,18 +520,8 @@ for tunnel in data.get("tunnels", []):
         print(tunnel.get("public_url", ""))
         break
 ' 2>/dev/null || true)"
-  if [[ -n "$ngrok_url" ]]; then
-    printf '%s\n' "$ngrok_url" > data/ngrok_url.txt
-    ok "Ngrok public URL: $ngrok_url"
-  else
-    warn "ngrok started but no public URL was returned"
-    if [[ -s logs/ngrok-ui.log ]]; then
-      warn "ngrok UI log:"
-      tail -n 20 logs/ngrok-ui.log || true
-    fi
-  fi
 
-  local ngrok_webrtc_url
+  local ngrok_webrtc_url=""
   ngrok_webrtc_url="$(printf '%s' "$tunnels_json" | python3 -c 'import json,sys
 try:
     data=json.load(sys.stdin)
@@ -382,23 +533,129 @@ for tunnel in data.get("tunnels", []):
         print(tunnel.get("public_url", ""))
         break
 ' 2>/dev/null || true)"
-  if [[ -n "$ngrok_webrtc_url" ]]; then
-    printf '%s\n' "$ngrok_webrtc_url" > data/ngrok_webrtc_url.txt
-    ok "Ngrok WebRTC URL: $ngrok_webrtc_url"
-  else
-    warn "ngrok WebRTC URL was not returned; phone Camera SRC may need local HTTPS setup"
-    if [[ -s logs/ngrok-webrtc.log ]]; then
-      warn "ngrok WebRTC log:"
-      tail -n 20 logs/ngrok-webrtc.log || true
-    elif [[ -s logs/ngrok-ui.log ]]; then
+
+  if [[ -z "$ngrok_url" || -z "$ngrok_webrtc_url" ]]; then
+    warn "ngrok did not return both HTTPS URLs"
+    if [[ -s logs/ngrok-ui.log ]]; then
       warn "ngrok combined log:"
       tail -n 20 logs/ngrok-ui.log || true
     fi
+    fail "ngrok tunnel startup failed"
   fi
+
+  write_public_url_cache "ngrok" "$ngrok_url" "$ngrok_webrtc_url"
+  ok "Ngrok public URL: $ngrok_url"
+  ok "Ngrok WebRTC URL: $ngrok_webrtc_url"
+}
+
+start_tailscale_tunnel() {
+  step "Starting Tailscale HTTPS tunnels"
+  if ! command_exists tailscale; then
+    print_install_help tailscale
+    fail "tailscale not found"
+  fi
+
+  local status_json=""
+  status_json="$(tailscale status --json 2>/dev/null || true)"
+  local backend_state=""
+  backend_state="$(printf '%s' "$status_json" | python3 -c 'import json,sys
+raw=sys.stdin.read().strip()
+if not raw:
+    print("")
+    raise SystemExit(0)
+try:
+    data=json.loads(raw)
+except Exception:
+    print("")
+    raise SystemExit(0)
+print(data.get("BackendState", ""))
+' 2>/dev/null || true)"
+  local dns_name=""
+  dns_name="$(printf '%s' "$status_json" | python3 -c 'import json,sys
+raw=sys.stdin.read().strip()
+if not raw:
+    print("")
+    raise SystemExit(0)
+try:
+    data=json.loads(raw)
+except Exception:
+    print("")
+    raise SystemExit(0)
+print(data.get("Self", {}).get("DNSName", ""))
+' 2>/dev/null || true)"
+  dns_name="$(trim_trailing_dot "$dns_name")"
+
+  if [[ "$backend_state" != "Running" || -z "$dns_name" ]]; then
+    print_install_help tailscale
+    fail "tailscale is installed but not connected. Run: sudo tailscale up"
+  fi
+
+  mkdir -p logs
+  local ui_target="http://127.0.0.1:5000"
+  local rtc_target="http://127.0.0.1:8889"
+
+  if ! tailscale funnel --bg --https=443 "$ui_target" > logs/tailscale-ui.log 2>&1; then
+    if grep -Eqi "serve config denied|access denied" logs/tailscale-ui.log 2>/dev/null; then
+      warn "tailscale operator permission is missing for this user."
+      printf 'Required commands:\n'
+      printf '  sudo tailscale set --operator=%s\n' "$USER"
+      printf '  sudo tailscale funnel --bg --https=443 %s\n' "$ui_target"
+      printf '  sudo tailscale funnel --bg --https=8443 %s\n' "$rtc_target"
+      if prompt_yes_no "Run these Tailscale commands now?"; then
+        sudo tailscale set --operator="$USER"
+        sudo tailscale funnel --bg --https=443 "$ui_target" > logs/tailscale-ui.log 2>&1
+        sudo tailscale funnel --bg --https=8443 "$rtc_target" > logs/tailscale-webrtc.log 2>&1
+      else
+        fail "Run the Tailscale commands above manually, then restart with --tailscale."
+      fi
+    else
+      print_install_help tailscale
+      warn "tailscale UI log:"
+      tail -n 20 logs/tailscale-ui.log || true
+      fail "failed to expose Flask UI through Tailscale Funnel"
+    fi
+  fi
+
+  if [[ ! -s logs/tailscale-webrtc.log ]] && ! tailscale funnel --bg --https=8443 "$rtc_target" > logs/tailscale-webrtc.log 2>&1; then
+    print_install_help tailscale
+    warn "tailscale WebRTC log:"
+    tail -n 20 logs/tailscale-webrtc.log || true
+    fail "failed to expose MediaMTX WebRTC through Tailscale Funnel"
+  fi
+
+  local tailscale_ui_url="https://${dns_name}"
+  local tailscale_webrtc_url="https://${dns_name}:8443"
+  write_public_url_cache "tailscale" "$tailscale_ui_url" "$tailscale_webrtc_url"
+  ok "Tailscale public URL: $tailscale_ui_url"
+  ok "Tailscale WebRTC URL: $tailscale_webrtc_url"
+}
+
+start_selected_tunnel() {
+  choose_tunnel_provider
+
+  case "$TUNNEL_PROVIDER" in
+    ngrok)
+      start_ngrok_tunnel
+      ;;
+    tailscale)
+      start_tailscale_tunnel
+      ;;
+    none)
+      step "Skipping public HTTPS tunnel"
+      clear_public_url_cache
+      warn "Public HTTPS disabled. Same-network LAN access remains available."
+      ;;
+    *)
+      warn "Unknown tunnel provider '$TUNNEL_PROVIDER'; skipping public HTTPS tunnel"
+      clear_public_url_cache
+      ;;
+  esac
 }
 
 print_urls() {
   detect_lan_ip
+  local tunnel_provider=""
+  tunnel_provider="$(cat data/public_url_provider.txt 2>/dev/null || true)"
   printf '\n'
   ok "VLM_Monitors is ready"
   printf 'Web UI     : %s\n' "$WEB_URL"
@@ -416,7 +673,11 @@ print_urls() {
   fi
   if [[ -s data/ngrok_webrtc_url.txt ]]; then
     printf 'Public RTC : %s\n' "$(cat data/ngrok_webrtc_url.txt)"
-    printf 'Phone note : Open the HTTPS Public UI on the phone, then switch to Camera SRC so Safari can request camera permission.\n'
+    if [[ "$tunnel_provider" == "tailscale" ]]; then
+      printf 'Phone note : Open the HTTPS Public UI on the phone. This tunnel is provided by Tailscale Funnel.\n'
+    else
+      printf 'Phone note : Open the HTTPS Public UI on the phone, then switch to Camera SRC so Safari can request camera permission.\n'
+    fi
   fi
   printf 'WebRTC view: %s\n' "$WEBRTC_URL"
   printf 'RTSP stream: rtsp://localhost:%s/camera\n' "$RTSP_PORT"
@@ -438,8 +699,11 @@ print_urls() {
   printf 'Phone Camera SRC steps:\n'
   if [[ -s data/ngrok_url.txt ]]; then
     printf '  - Open the HTTPS Public UI link above on the phone.\n'
+    if [[ "$tunnel_provider" == "tailscale" ]]; then
+      printf '  - This HTTPS path is served through Tailscale Funnel.\n'
+    fi
   else
-    printf '  - HTTPS is required for phone camera sharing. Start ngrok or another HTTPS tunnel first.\n'
+    printf '  - HTTPS is required for phone camera sharing. Start ngrok or Tailscale first.\n'
   fi
   printf '  - Switch mode to Camera SRC.\n'
   printf '  - Enter source name / source id.\n'
@@ -448,7 +712,7 @@ print_urls() {
   printf '\n'
   printf 'Situation Room steps:\n'
   printf '  - Any client entering Situation Room controls the same backend dashboard.\n'
-  printf '  - Wait for the iPhone source tile to appear.\n'
+  printf '  - Wait for the phone source tile to appear.\n'
   printf '  - Click Monitor on the source you want to analyze.\n'
   printf '\n'
 }
@@ -462,6 +726,7 @@ preflight() {
 
 bring_up() {
   preflight
+  clean_runtime_state
 
   step "Starting Docker Compose stack"
   if [[ "$FORCE_BUILD" == true ]]; then
@@ -476,7 +741,7 @@ bring_up() {
   wait_tcp "RTSP stream" "$RTSP_HOST" "$RTSP_PORT" 45 2
   wait_http "HLS stream" "$HLS_URL" 60 2
   check_device_apis
-  start_ngrok_if_available
+  start_selected_tunnel
   print_urls
 
   if [[ "$FOLLOW_LOGS" == true ]]; then
@@ -487,8 +752,10 @@ bring_up() {
 
 restart_stack() {
   preflight
+  stop_ngrok_processes
   step "Stopping and removing existing Compose containers"
   compose down --remove-orphans
+  remove_conflicting_named_container
   ok "Existing Compose containers are down"
   bring_up
 }
@@ -532,13 +799,19 @@ status_stack() {
 
 down_stack() {
   step "Stopping Compose stack"
+  stop_ngrok_processes
   compose down --remove-orphans
+  remove_conflicting_named_container
+  clear_public_url_cache
   ok "Compose stack stopped"
 }
 
 destroy_stack() {
   step "Stopping stack and removing local Compose image"
+  stop_ngrok_processes
   compose down --remove-orphans --rmi local
+  remove_conflicting_named_container
+  clear_public_url_cache
   ok "Compose containers and local image removed"
 }
 
@@ -549,18 +822,18 @@ show_logs() {
 usage() {
   cat <<EOF
 Usage:
-  ./run.sh up [--follow] [--no-ngrok] [--no-build]
-  ./run.sh restart [--follow] [--no-ngrok] [--no-build]
-  ./run.sh down_up [--follow] [--no-ngrok] [--no-build]
-  ./run.sh rebuild [--follow] [--no-ngrok]
+  ./run.sh up [--follow] [--ngrok|--tailscale|--no-tunnel] [--no-build]
+  ./run.sh restart [--follow] [--ngrok|--tailscale|--no-tunnel] [--no-build]
+  ./run.sh down_up [--follow] [--ngrok|--tailscale|--no-tunnel] [--no-build]
+  ./run.sh rebuild [--follow] [--ngrok|--tailscale|--no-tunnel]
   ./run.sh status
   ./run.sh logs
   ./run.sh down
   ./run.sh destroy
 
 Notes:
-  up       checks Docker, NVIDIA runtime, /dev/video0, /dev/snd, Ollama, container, API, RTSP, HLS, and device APIs.
-  restart  runs docker compose down --remove-orphans before starting again.
+  up       checks Docker, NVIDIA runtime, /dev/video0, /dev/snd, Ollama, then lets the operator choose ngrok or Tailscale HTTPS.
+  restart  runs docker compose down --remove-orphans, stops ngrok, removes leftover llm_monitor, then starts again.
   down_up  alias of restart for operators who want an explicit down-then-up command.
   rebuild  rebuilds the image with --no-cache before starting.
 EOF

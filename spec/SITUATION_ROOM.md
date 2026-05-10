@@ -15,7 +15,7 @@ Browsers first land on a role gate. The selected role is stored in browser `loca
 
 ## Situation Room
 
-Situation Room is the shared operator dashboard hosted by the AGX backend.
+Situation Room is the shared operator dashboard hosted by the service-host backend.
 
 Current rules:
 
@@ -24,13 +24,6 @@ Current rules:
 - clients see the same source grid and Risk Intelligence state
 - clients can select exactly one source for VLM analysis
 - clients can disconnect remote source tiles manually
-
-Grid behavior:
-
-- `1` source -> single tile
-- `2` sources -> two tiles
-- `3-4` sources -> `2x2`
-- `5+` sources -> `3x3`
 
 Per-tile behavior:
 
@@ -53,8 +46,6 @@ Current flow:
 5. frontend registers the source, starts heartbeat, and opens the MediaMTX publish page in a new tab/window
 6. operator grants camera permission there and starts publishing
 
-This split is intentional. It avoids unwanted `Browser SRC` tiles appearing just because a browser opened the UI.
-
 ## Why Publish Opens In A New Tab
 
 For iPhone/Safari, camera permission is unreliable when the publish page is embedded as a cross-origin iframe.
@@ -69,16 +60,17 @@ in a top-level tab/window so Safari can prompt for camera access more reliably.
 
 ## URLs
 
-Local AGX operator URL:
+Local service-host operator URL:
 
 ```text
 http://localhost:5000
 ```
 
-Remote iPhone Camera SRC URL:
+Remote phone Camera SRC URL:
 
 ```text
 Public UI printed by ./run.sh up
+(through either ngrok or Tailscale, depending on the startup tunnel selection)
 ```
 
 The frontend internally uses the printed `Public RTC` base URL for:
@@ -86,7 +78,7 @@ The frontend internally uses the printed `Public RTC` base URL for:
 - source tile playback
 - Camera SRC publish page
 
-For HTTPS `Situation Room` viewing on phones, the frontend can use same-origin proxied HLS playback to avoid ngrok/WebRTC iframe problems.
+For HTTPS `Situation Room` viewing on phones, the frontend can use same-origin proxied HLS playback to avoid ngrok/WebRTC iframe problems. `run.sh` is now responsible for choosing and printing the correct HTTPS entry path first.
 
 ## Source Registry
 
@@ -105,7 +97,7 @@ Backend source registry fields currently include:
 
 Current important IDs:
 
-- `agx-local`: AGX host local camera source
+- `agx-local`: service host local camera source
 - browser-provided source ids such as `phone-a`, `front-door`, `warehouse-2`
 
 ## Analysis Routing
@@ -114,16 +106,22 @@ Only one source is analyzed at a time.
 
 Rules:
 
-- if selected source is `agx-local`, VLM uses the AGX local `latest_frame`
+- if selected source is `agx-local`, VLM uses the local `latest_frame`
 - if selected source is remote, backend starts a selected-source frame tap from the remote MediaMTX path
 - newly selected remote sources may need a short warm-up before the first analysis frame is available
 - if selected remote source disappears, backend falls back to `agx-local`
 
 Source switching resets visible risk state so the old source result is not shown on the new source.
 
+## Tunnel-Related Notes
+
+- `ngrok` is simple but can hit request or plan limits during long-running phone sessions.
+- `Tailscale` is now supported directly from `run.sh` as another HTTPS path.
+- If Tailscale operator permission is missing, `run.sh` can prompt to run the required `sudo` commands for `5000` and `8889`.
+
 ## Known Constraints
 
 - Browser role persistence is local to each browser profile.
 - Browser pop-up blocking can interfere with opening the publish page.
 - End-to-end mobile browser testing is still manual.
-- Local LAN HTTP URLs are useful for desktop debugging but are not the preferred iPhone Camera SRC path.
+- Local LAN HTTP URLs are useful for desktop debugging but are not the preferred phone Camera SRC path.

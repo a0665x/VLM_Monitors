@@ -1,64 +1,65 @@
-# VLM_Monitors
+# 把家裡不要的手機都拿來當監控吧！
 
-VLM_Monitors is a local-first video monitoring system built around one compute-capable service host with:
+把舊手機、備用手機、平板，直接變成家裡或工作場域的監控鏡頭；再用一台有算力的 Linux 主機集中接收畫面、切換來源、做本地 VLM 風險分析，真的有狀況時再送出通知。
 
-- local camera capture on the service host
-- browser-based `Camera SRC` publishing from phones or laptops
-- shared `Situation Room` monitoring UI
-- local Ollama VLM risk analysis
-- optional sound detection
-- optional Twilio SMS and webhook alerts
+![VLM_Monitors demo](./demo.png)
 
-The current production runtime is Flask + Socket.IO on port `5000`, with MediaMTX for RTSP/HLS/WebRTC and Ollama running on the host.
+這個專案現在解的核心痛點很直接：
+
+- 舊手機不要丟，直接拿來當 `Camera SRC`
+- 多支手機畫面集中進同一個 `Situation Room`
+- 只用一台有算力的 service host 跑 Ollama VLM
+- 想分析哪一支畫面，就即時切換指定來源
+- 不想把影像送上雲，就維持本地優先架構
+
+目前正式 runtime 是 Flask + Socket.IO + MediaMTX + Ollama，主入口是 `src/server.py`，不是舊的 Streamlit 路徑。
 
 ## Agent Onboarding First
 
-This repository includes a shareable onboarding skill at:
+這個 repo 內建可分享的 onboarding skill：
 
 - [`skills/project-spec-onboarding/SKILL.md`](./skills/project-spec-onboarding/SKILL.md)
 
-If another user or agent wants to understand this project quickly, have the agent use the skill first and let it start from `./spec` instead of scanning the whole repository blindly.
+如果你是第一次接手這個專案，或想讓 agent 快速理解它，先讓 agent 用這個 skill，從 `./spec/PROJECT_MAP.md` 開始，而不是先盲掃整個 codebase。
 
-Example prompt:
+範例提示詞：
 
 ```text
 請利用 $project-spec-onboarding，去初始化理解這整包專案，先從 ./spec/PROJECT_MAP.md 開始，再告訴我這個專案目前的核心架構、執行方式、以及之後修改時應該優先看哪些文件。
 ```
 
-Short English example:
+English example:
 
 ```text
 Use $project-spec-onboarding to initialize understanding of this repository. Start from ./spec/PROJECT_MAP.md, then summarize the current architecture, runtime flow, and which docs/files should be read first before making changes.
 ```
 
-## Current Highlights
+## 你會得到什麼
 
-- Shared `Situation Room`: multiple clients can open the monitoring dashboard and operate the same backend state.
-- `Camera SRC`: phones can publish camera streams into the AGX-hosted monitoring session.
-- HTTPS-friendly remote viewing: phone `Situation Room` playback can use same-origin HLS proxy playback to avoid ngrok/WebRTC iframe issues.
-- Local-first AI: video stays local to the AGX host; inference runs through local Ollama vision models.
+- `Situation Room`：集中監看多支手機 / 瀏覽器來源
+- `Camera SRC`：手機開 HTTPS 頁面就能當分享鏡頭
+- 本地 Ollama VLM：只分析當前指定來源，不必所有來源一起燒算力
+- 遠端 HTTPS：可選 `ngrok` 或 `Tailscale`
+- Optional alerts：SMS / webhook
+- Optional sound detection
 
 ## Architecture
 
 ```text
-AGX local camera (/dev/video0)
+local / phone camera
+  -> Camera SRC browser publish
+  -> MediaMTX
+  -> shared Situation Room grid
+  -> selected source only
+  -> Ollama VLM analysis
+  -> UI updates / alerts
+
+service host local camera
   -> GStreamer capture
   -> CameraThread
   -> FFmpeg RTSP publish
   -> MediaMTX
   -> RTSP / HLS / WebRTC
-
-browser Camera SRC
-  -> HTTPS UI
-  -> Start Camera Sharing
-  -> MediaMTX publish page
-  -> remote source registered in backend
-
-selected source
-  -> AnalysisThread
-  -> InferenceEngine
-  -> Ollama VLM
-  -> status updates / alerts
 ```
 
 ## Prerequisites
@@ -75,29 +76,10 @@ Required:
 
 Optional:
 
-- ngrok: recommended when phones need to use `Camera SRC` over HTTPS
+- `ngrok`: simple HTTPS tunnel for phone access
+- `Tailscale`: better long-running remote-access path
 - Twilio credentials: only needed for SMS alerts
 - webhook endpoint: only needed for webhook alerts
-
-## Required Host Checks
-
-Before starting, confirm these work on the host:
-
-```bash
-docker --version
-docker compose version
-curl -fsSL http://localhost:11434/api/tags
-test -x temp/mediamtx
-test -e /dev/video0
-```
-
-If you use NVIDIA runtime:
-
-```bash
-docker info --format '{{json .Runtimes}}'
-```
-
-You should see `nvidia` in the runtime list.
 
 ## Ollama Setup
 
@@ -107,7 +89,7 @@ Start Ollama on the host:
 ollama serve
 ```
 
-Pull at least one small vision model first, for example:
+Recommended first model:
 
 ```bash
 ollama pull bakllava
@@ -120,26 +102,42 @@ Other usable vision model suggestions:
 - `llama3.2-vision:11b`
 - `qwen3-vl:8b`
 
-## ngrok Setup
+## Tunnel Setup
 
-`ngrok` is optional for same-network desktop use, but strongly recommended for phone `Camera SRC`.
+`run.sh` now supports two HTTPS paths for phone / remote browser usage:
 
-Install ngrok and log in once:
+- `ngrok`
+- `Tailscale`
+
+When you run `./run.sh up` or `./run.sh down_up`, the script can prompt you to choose one with left/right arrow keys.
+
+### ngrok
+
+Install and authenticate once:
 
 ```bash
 ngrok config add-authtoken <YOUR_NGROK_AUTHTOKEN>
 ```
 
-When `ngrok` is installed, `./run.sh up` will try to create:
+The script will create:
 
 - `Public UI`: HTTPS browser UI
 - `Public RTC`: HTTPS MediaMTX publish/playback base
 
-Phones should use the HTTPS `Public UI`, not LAN `http://...:5000`.
+### Tailscale
+
+Typical setup:
+
+```bash
+curl -fsSL https://tailscale.com/install.sh | sh
+sudo tailscale up
+```
+
+If operator permission is missing, `run.sh` can now detect that and ask whether it should run the required `sudo tailscale set --operator=...` and `sudo tailscale funnel ...` commands for you.
 
 ## Quick Start
 
-`./run.sh up` already performs preflight checks. If Docker, Ollama, MediaMTX, camera devices, or NVIDIA runtime are missing, it should stop early and print what to install or verify first.
+`./run.sh up` already performs preflight checks. If Docker, Ollama, MediaMTX, camera devices, NVIDIA runtime, ngrok, or Tailscale prerequisites are missing, it stops early and prints what to install or verify.
 
 Start the full stack:
 
@@ -147,16 +145,18 @@ Start the full stack:
 ./run.sh up
 ```
 
-Restart from clean Compose state:
-
-```bash
-./run.sh restart
-```
-
-Shortcut alias for down then up:
+Restart cleanly:
 
 ```bash
 ./run.sh down_up
+```
+
+Force a tunnel mode without using the arrow-key prompt:
+
+```bash
+./run.sh up --ngrok
+./run.sh up --tailscale
+./run.sh up --no-tunnel
 ```
 
 Check runtime health:
@@ -187,7 +187,7 @@ Local:
 
 Remote / phone:
 
-- use the `Public UI` printed by `./run.sh up`
+- use the HTTPS `Public UI` printed by `./run.sh up`
 - do not manually browse to `Public RTC`
 
 ## How To Use
@@ -216,49 +216,13 @@ Remote / phone:
 3. View the shared dashboard
 4. Be aware that source selection affects the same backend state as the service host
 
-## Alerts
+## Docs
 
-Optional alert features:
+Read these first:
 
-- Twilio SMS
-- webhook integration
-
-By default, SMS and webhook toggles are off. Configure them in the UI before enabling.
-
-## Important Operational Notes
-
-- `Camera SRC` on phones should use HTTPS.
-- Shared `Situation Room` means multiple clients can control the same monitored source.
-- Remote playback and remote analysis are related but not identical paths; a tile can appear before the selected-source analysis tap has fully warmed up.
-- If model selection changes, the UI should reflect the configured model immediately, while completed results still depend on the next inference cycle.
-- The currently tested deployment path expects Docker + NVIDIA runtime + local Ollama on the service host.
-
-## Repository Hygiene Before Publishing
-
-This project can generate local-only files and sensitive config values. Before pushing to GitHub, verify that machine-specific URLs, secrets, and temporary runtime artifacts are excluded from the commit.
-
-## Documentation
-
-Read project docs in this order:
-
-1. [spec/PROJECT_MAP.md](./spec/PROJECT_MAP.md)
-2. [spec/ARCHITECTURE.md](./spec/ARCHITECTURE.md)
-3. [spec/RUNTIME.md](./spec/RUNTIME.md)
-4. [spec/API.md](./spec/API.md)
-5. [spec/SITUATION_ROOM.md](./spec/SITUATION_ROOM.md)
-6. [spec/TROUBLESHOOTING.md](./spec/TROUBLESHOOTING.md)
-7. [spec/TODO.md](./spec/TODO.md)
-8. [spec/PROJECT_OVERVIEW.md](./spec/PROJECT_OVERVIEW.md)
-9. [spec/PRD.md](./spec/PRD.md)
-10. [spec/DOCUMENTATION_INDEX.md](./spec/DOCUMENTATION_INDEX.md)
-11. [specs/FAQ.md](./specs/FAQ.md)
-
-## Current Limitations
-
-- End-to-end phone browser behavior still requires manual testing.
-- Remote source frame tap is still based on OpenCV RTSP capture; a GStreamer replacement is planned.
-- Older Streamlit-oriented files still exist in the repository but are not the current primary runtime.
-
-## License
-
-Add a top-level `LICENSE` file before publishing broadly on GitHub. Also review any bundled third-party binaries or packaging artifacts separately before redistribution.
+- [`spec/PROJECT_MAP.md`](./spec/PROJECT_MAP.md)
+- [`spec/ARCHITECTURE.md`](./spec/ARCHITECTURE.md)
+- [`spec/RUNTIME.md`](./spec/RUNTIME.md)
+- [`spec/SITUATION_ROOM.md`](./spec/SITUATION_ROOM.md)
+- [`spec/TROUBLESHOOTING.md`](./spec/TROUBLESHOOTING.md)
+- [`spec/TODO.md`](./spec/TODO.md)
