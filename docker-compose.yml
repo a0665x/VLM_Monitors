@@ -1,0 +1,40 @@
+services:
+  # LLM Monitor (with integrated camera publisher)
+  llm-monitor:
+    build: .
+    image: llm-monitor:latest
+    container_name: llm_monitor
+    network_mode: "host"
+    privileged: true
+    devices:
+      - "/dev/video0:/dev/video0"
+      - "/dev/snd:/dev/snd"
+    runtime: nvidia
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=all
+      - SERVER_NAME=0.0.0.0
+      - GRADIO_SHARE=${GRADIO_SHARE:-false}
+      - OLLAMA_HOST=http://localhost:11434
+      - OLLAMA_BASE_URL=http://localhost:11434
+      - VIDEO_DEVICE=/dev/video0
+      - RTSP_URL=rtsp://localhost:8554/camera
+      - PUBLISH_TO_RTSP=true
+      - XDG_RUNTIME_DIR=/run/user/1000
+      - PULSE_SERVER=unix:/run/user/1000/pulse/native
+      - PULSE_COOKIE=/root/.config/pulse/cookie
+    volumes:
+      - ./src:/app/src
+      - ./static:/app/static
+      - ./data:/app/data
+      - ./temp:/app/temp
+      - /usr/bin/tegrastats:/usr/bin/tegrastats:ro
+      - /run/user/1000/pulse:/run/user/1000/pulse
+      - /home/a0665x/.config/pulse/cookie:/root/.config/pulse/cookie:ro
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:5000/api/status >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    restart: unless-stopped

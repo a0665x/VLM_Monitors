@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+.venv/
+temp/
+logs/
+.env
+.DS_Store
+twilio_config.ini
+twilio_config.txt
+data/ngrok_url.txt
+data/ngrok_webrtc_url.txt

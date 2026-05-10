@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LLM Monitor - Risk Detection</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>👁️</text></svg>">
+</head>
+<body>
+    <div class="role-gate" id="role-gate">
+            <div class="role-gate-panel">
+                <h2>Choose Device Role</h2>
+            <p class="helper-copy">Pick how this browser should join the shared backend before opening any live view.</p>
+            <div class="role-gate-actions">
+                <button class="btn btn-primary" id="enter-situation-room-btn">Enter Situation Room</button>
+                <button class="btn btn-success" id="enter-camera-src-btn">Enter Camera SRC</button>
+            </div>
+            <p class="helper-copy" id="role-gate-status">No role selected yet.</p>
+        </div>
+    </div>
+
+    <!-- Header -->
+    <header class="header">
+        <div class="header-left">
+            <h1>👁️ LLM Monitor</h1>
+            <span class="subtitle">AI-Powered Risk Detection System</span>
+        </div>
+        <div class="header-right">
+            <div class="system-stats">
+                <div class="stat-item">
+                    <span class="stat-label">CPU</span>
+                    <span class="stat-value" id="cpu-usage">--</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">RAM</span>
+                    <span class="stat-value" id="ram-usage">--</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">GPU</span>
+                    <span class="stat-value" id="gpu-usage">--</span>
+                </div>
+            </div>
+            <div class="connection-status">
+                <span class="status-dot" id="ws-status"></span>
+                <span id="ws-status-text">Connecting...</span>
+            </div>
+        </div>
+    </header>
+
+    <nav class="mode-switch" aria-label="Application mode">
+        <div class="segmented-toggle" role="radiogroup" aria-label="Choose how this device is used">
+            <button class="segment-option active" id="situation-room-mode" data-mode="situation" role="radio" aria-checked="true">Situation Room</button>
+            <button class="segment-option" id="camera-src-mode" data-mode="camera" role="radio" aria-checked="false">Camera SRC</button>
+        </div>
+    </nav>
+
+    <!-- Main Container -->
+    <div class="main-container hidden" id="situation-room-view">
+        <!-- Left Panel - Video Feed -->
+        <div class="video-panel">
+            <div class="panel-header">
+                <h2>Situation Room</h2>
+                <div class="stream-info">
+                    <span id="stream-status">Loading...</span>
+                </div>
+            </div>
+            <div class="room-toolbar">
+                <div class="room-selection">
+                    <span class="room-selection-label">Analyze Source</span>
+                    <strong id="selected-source-label">AGX Local Camera</strong>
+                </div>
+                <div class="room-lock" id="room-lock-status">Shared Situation Room control</div>
+            </div>
+            <div class="source-grid situation-grid" id="source-grid"></div>
+            <div class="stream-urls">
+                <div class="url-item">
+                    <label>Selected:</label>
+                    <code id="stream-url">Waiting for source</code>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Panel - Controls & Intelligence -->
+        <div class="control-panel">
+            <!-- Risk Status -->
+            <div class="section risk-status">
+                <h2>🛡️ Risk Intelligence</h2>
+                <div class="status-display">
+                    <div class="status-indicator" id="status-indicator">
+                        <span class="status-text" id="status-text">SAFE</span>
+                    </div>
+                    <div class="confidence-meter">
+                        <label>Confidence Score</label>
+                        <div class="meter-bar">
+                            <div class="meter-fill" id="confidence-fill"></div>
+                        </div>
+                        <span class="meter-value" id="confidence-value">0.00</span>
+                    </div>
+                    <div class="explanation-box">
+                        <label>Explanation</label>
+                        <p id="explanation-text">Waiting for analysis...</p>
+                    </div>
+                    <div class="inference-meta">
+                        <div>
+                            <span>Model</span>
+                            <strong id="inference-model">--</strong>
+                        </div>
+                        <div>
+                            <span>Latency</span>
+                            <strong id="inference-latency">--</strong>
+                        </div>
+                        <div>
+                            <span>Last Run</span>
+                            <strong id="inference-last-run">--</strong>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Analysis Controls -->
+            <div class="section analysis-controls">
+                <h3>⚙️ Analysis Controls</h3>
+                <div class="control-group">
+                    <button class="btn btn-primary" id="analyze-once-btn">
+                        <span class="btn-icon">🔍</span>
+                        Analyze Once
+                    </button>
+                    <div class="toggle-group">
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="auto-analysis-toggle">
+                            <span class="slider"></span>
+                        </label>
+                        <label for="auto-analysis-toggle">Auto Analysis</label>
+                    </div>
+                </div>
+                
+                <div class="control-group" id="notification-controls" style="display: none;">
+                    <div class="toggle-group">
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="enable-sms-toggle">
+                            <span class="slider"></span>
+                        </label>
+                        <label for="enable-sms-toggle">Enable SMS Alerts</label>
+                    </div>
+                    <div class="toggle-group">
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="enable-webhook-toggle">
+                            <span class="slider"></span>
+                        </label>
+                        <label for="enable-webhook-toggle">Enable Webhook</label>
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <div class="toggle-group">
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="sound-detection-toggle">
+                            <span class="slider"></span>
+                        </label>
+                        <label for="sound-detection-toggle">Sound Detection</label>
+                    </div>
+                    <div class="sound-info" id="sound-info" style="display: none;">
+                        <div class="sound-meter-row">
+                            <span id="sound-label">--</span>
+                            <span class="sound-fps" id="sound-fps">FPS: --</span>
+                        </div>
+                        <div class="sound-level-container">
+                            <div class="sound-level">
+                                <div class="sound-level-fill" id="sound-level-fill"></div>
+                                <div class="sound-threshold-marker" id="sound-threshold-marker"></div>
+                            </div>
+                            <input type="range" id="sound-threshold-slider" min="-80" max="0" value="-35" class="slider-input sound-slider">
+                        </div>
+                        <div class="sound-meter-row">
+                            <span id="sound-db">-- dB</span>
+                            <span>Threshold <strong id="sound-threshold-value">-35 dB</strong></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Settings Accordion -->
+            <div class="section settings-accordion">
+                <div class="accordion-item">
+                    <button class="accordion-header" data-target="analysis-settings">
+                        <span>📊 Analysis Settings</span>
+                        <span class="accordion-icon">▼</span>
+                    </button>
+                    <div class="accordion-content" id="analysis-settings">
+                        <div class="form-group">
+                            <label for="model-select">Vision Model</label>
+                            <select id="model-select" class="form-control">
+                                <option>Loading...</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="interval-slider">Analysis Interval (s)</label>
+                            <input type="range" id="interval-slider" min="0" max="60" value="5" class="slider-input">
+                            <span id="interval-value">5s</span>
+                        </div>
+                        <div class="form-group">
+                            <label for="threshold-slider">Risk Threshold</label>
+                            <input type="range" id="threshold-slider" min="1" max="10" value="3" class="slider-input">
+                            <span id="threshold-value">3</span>
+                        </div>
+                        <div class="toggle-group">
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="show-inference-overlay-toggle">
+                                <span class="slider"></span>
+                            </label>
+                            <label for="show-inference-overlay-toggle">Show live inference text on monitored tile</label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="accordion-item">
+                    <button class="accordion-header" data-target="notification-settings">
+                        <span>🔔 Notifications</span>
+                        <span class="accordion-icon">▼</span>
+                    </button>
+                    <div class="accordion-content" id="notification-settings">
+                        <div class="form-group">
+                            <label for="twilio-sid">Twilio SID</label>
+                            <input type="password" id="twilio-sid" class="form-control" placeholder="ACxxxxxxxx">
+                        </div>
+                        <div class="form-group">
+                            <label for="twilio-token">Auth Token</label>
+                            <input type="password" id="twilio-token" class="form-control">
+                        </div>
+                        <div class="form-group">
+                            <label for="from-number">From Number</label>
+                            <input type="text" id="from-number" class="form-control" placeholder="+1234567890">
+                        </div>
+                        <div class="form-group">
+                            <label for="to-number">To Number</label>
+                            <input type="text" id="to-number" class="form-control" placeholder="+1987654321">
+                        </div>
+                        <div class="form-group">
+                            <label for="custom-msg">Custom Message</label>
+                            <input type="text" id="custom-msg" class="form-control" placeholder="RISK DETECTED!">
+                        </div>
+                        <div class="form-group">
+                            <label for="webhook-url">Webhook URL</label>
+                            <input type="url" id="webhook-url" class="form-control" placeholder="https://example.com/webhook">
+                        </div>
+                        <div class="form-group">
+                            <label for="cooldown-input">Alert Cooldown (s)</label>
+                            <input type="number" id="cooldown-input" class="form-control" value="300" min="60" max="600">
+                        </div>
+                        <button class="btn btn-success" id="save-twilio-btn">Save Configuration</button>
+                    </div>
+                </div>
+
+                <div class="accordion-item">
+                    <button class="accordion-header" data-target="device-settings">
+                        <span>🎥 Device Settings</span>
+                        <span class="accordion-icon">▼</span>
+                    </button>
+                    <div class="accordion-content" id="device-settings">
+                        <div class="form-group">
+                            <label for="video-device-select">Video Device</label>
+                            <select id="video-device-select" class="form-control">
+                                <option>Loading...</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="audio-device-select">Audio Device</label>
+                            <select id="audio-device-select" class="form-control">
+                                <option>Loading...</option>
+                            </select>
+                        </div>
+                        <div class="toggle-group">
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="enable-audio-toggle">
+                                <span class="slider"></span>
+                            </label>
+                            <label for="enable-audio-toggle">Enable Microphone (RTSP)</label>
+                        </div>
+                        <button class="btn btn-primary" id="apply-device-btn">Apply & Restart Camera</button>
+                    </div>
+                </div>
+
+                <div class="accordion-item">
+                    <button class="accordion-header" data-target="prompt-settings">
+                        <span>📝 Risk Criteria</span>
+                        <span class="accordion-icon">▼</span>
+                    </button>
+                    <div class="accordion-content" id="prompt-settings">
+                        <div class="form-group">
+                            <label for="prompt-textarea">Detection Prompt</label>
+                            <textarea id="prompt-textarea" class="form-control" rows="6" placeholder="Describe what constitutes a risk..."></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label for="prompt-history">History</label>
+                            <select id="prompt-history" class="form-control">
+                                <option value="">Select from history...</option>
+                            </select>
+                        </div>
+                        <button class="btn btn-success" id="apply-prompt-btn">Apply Criteria</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <main class="camera-src-view hidden" id="camera-src-view">
+        <section class="video-panel camera-src-panel">
+            <div class="panel-header">
+                <h2>Camera SRC</h2>
+                <div class="stream-info">
+                    <span id="camera-src-status">Use this device as a camera</span>
+                </div>
+            </div>
+            <div class="camera-src-layout">
+                <div class="section source-instructions">
+                    <h3>This Device</h3>
+                    <p class="helper-copy">Turn this phone or laptop into a live camera for the Situation Room. AI monitoring stays on the AGX service. Phones must open the HTTPS UI URL before sharing.</p>
+                    <p class="helper-copy" id="camera-publish-status">Ready. Fill source info, then press Start Camera Sharing.</p>
+                    <div class="form-group">
+                        <label for="camera-source-id">Camera name</label>
+                        <input type="text" id="camera-source-id" class="form-control" value="browser-src">
+                    </div>
+                    <div class="form-group">
+                        <label for="camera-source-label">Source label</label>
+                        <input type="text" id="camera-source-label" class="form-control" value="Browser SRC">
+                    </div>
+                    <button class="btn btn-primary" id="reload-camera-src-btn">Start Camera Sharing</button>
+                    <p class="helper-copy" id="camera-src-status-copy">This opens the camera publisher directly in a new tab. This device only shares video to the Situation Room.</p>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Toast Notification -->
+    <div class="toast" id="toast"></div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <script src="/static/js/app.js"></script>
+</body>
+</html>

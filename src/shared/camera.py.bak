@@ -1,0 +1,307 @@
+import threading
+import cv2
+import subprocess
+import numpy as np
+import time
+import math
+import logging
+import re
+import os
+from shared.state import AppState
+
+logger = logging.getLogger(__name__)
+
+class CameraThread(threading.Thread):
+    def __init__(self, state: AppState, device="/dev/video0", audio_device="default", rtsp_url="rtsp://localhost:8554/camera"):
+        super().__init__(daemon=True)
+        self.state = state
+        self.device = device
+        self.audio_device = audio_device
+        self.rtsp_url = rtsp_url
+        self.running = True
+        
+        # Buffer for RTSP stream (1 frame max to drop old frames)
+        self.stream_queue = None
+        
+    async def _run_inference(self, fc):
+        # ... (no change here)
+        pass
+
+    def run(self):
+        import queue
+        self.stream_queue = queue.Queue(maxsize=1)
+        
+        logger.info(f"Starting CameraThread: {self.device} -> {self.rtsp_url}")
+        
+        # Start RTSP Writer Thread
+        writer_thread = threading.Thread(target=self._rtsp_writer, daemon=True)
+        writer_thread.start()
+
+        # Retry opening camera
+        cap = None
+        for i in range(5):
+            cap = cv2.VideoCapture(self.device, cv2.CAP_V4L2)
+            if cap.isOpened():
+                break
+            cap = cv2.VideoCapture(self.device)
+            if cap.isOpened():
+                break
+            logger.warning(f"Camera open failed, retrying ({i+1}/5)...")
+            time.sleep(1)
+            
+        if not cap or not cap.isOpened():
+            logger.error(f"Failed to open camera: {self.device}")
+            return
+            
+        # Force YUYV (Uncompressed) at 640x480
+        # This fits in USB 2.0 bandwidth (~18MB/s) and avoids MJPG decoding overhead/errors
+        cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc('Y', 'U', 'Y', 'V'))
+        cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+        cap.set(cv2.CAP_PROP_FPS, 30)
+        # CRITICAL: Set buffer size to 1 to remove internal queue latency
+        cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+
+        # Apply Exposure Settings AFTER opening
+        try:
+             # Force 30 fps 
+             subprocess.run(['v4l2-ctl', '-d', self.device, '-p', '30'], 
+                            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+             # Auto Exposure
+             subprocess.run(['v4l2-ctl', '-d', self.device, '-c', 'auto_exposure=3'], 
+                            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+             logger.info("Applied Settings: 640x480 @ 30FPS (Auto)")
+        except Exception as e:
+             logger.warning(f"Failed to set settings: {e}")
+        
+        # --- DECOUPLED CAPTURE LOOP ---
+        self.latest_read_frame = None
+        self.read_lock = threading.Lock()
+        
+        def capture_loop():
+            while self.running and cap.isOpened():
+                ret, frame = cap.read()
+                if not ret:
+                    logger.warning("Camera read failed in capture loop")
+                    break
+                with self.read_lock:
+                    # Store frame with capture timestamp to detect duplicates
+                    self.latest_read_frame = (frame, time.time())
+            cap.release()
+            
+        capture_thread = threading.Thread(target=capture_loop, daemon=True)
+        capture_thread.start()
+        
+        frame_count = 0
+        last_log_time = time.time()
+        last_processed_time = 0
+        
+        while self.running:
+            # Consume latest frame
+            frame = None
+            capture_time = 0
+            
+            with self.read_lock:
+                if self.latest_read_frame is not None:
+                    frame, capture_time = self.latest_read_frame
+                    # Ensure we are copying the frame if we modify it later (we do in overlays)
+                    # But actually we copy it below. 
+                    # Optimization: Don't copy here if we can avoid it, but read_lock scope matters.
+                    # Ideally we copy under lock or reference is fine if we copy immediately.
+                    pass 
+
+            if frame is None:
+                if not capture_thread.is_alive():
+                    break
+                time.sleep(0.005)
+                continue
+                
+            # Skip duplicates
+            if capture_time <= last_processed_time:
+                time.sleep(0.001)
+                continue
+                
+            last_processed_time = capture_time
+            
+            # Now we have a NEW frame
+            # Make a copy for processing to avoid race conditions if we held reference
+            frame_working = frame.copy() 
+            
+            frame_count += 1
+            now = time.time()
+            if now - last_log_time > 5.0:
+                fps = frame_count / (now - last_log_time)
+                q_size = self.stream_queue.qsize() if self.stream_queue else 0
+                logger.info(f"CAM STATS: Capture FPS: {fps:.2f} | RTSP Queue: {q_size}")
+                frame_count = 0
+                last_log_time = now
+                
+            # Apply Overlays (on BGR copy)
+            self._apply_overlays(frame_working)
+            
+            # Update State (RGB for UI) - FAST update
+            with self.state.lock:
+                self.state.latest_frame = cv2.cvtColor(frame_working, cv2.COLOR_BGR2RGB)
+                
+            # Push original raw frame (or overlayed? original code pushed overlayed) to RTSP
+            # The original code: _apply_overlays(frame), then state update, then RTSP. 
+            # So RTSP got overlays. We should keep that.
+            
+            # Push to RTSP Queue (Non-blocking drop)
+            if self.stream_queue.full():
+                try:
+                    self.stream_queue.get_nowait()
+                except queue.Empty:
+                    pass
+            try:
+                self.stream_queue.put_nowait(frame_working.copy()) # Copy again? frame_working is already a copy. 
+                # Be careful: Queue.put stores reference. 
+                # If we modify frame_working next loop, it would change. 
+                # But frame_working is created new each loop. So put(frame_working) is safe.
+            except queue.Full:
+                pass
+            
+            # Small sleep to yield CPU since we are just processing whatever is available
+            # But not too much to introduce latency
+            time.sleep(0.001)
+
+        self.running = False
+        if capture_thread.is_alive():
+             capture_thread.join(timeout=1.0)
+        if writer_thread.is_alive():
+             writer_thread.join(timeout=1.0)
+
+    def _rtsp_writer(self):
+        """Separate thread to handle GStreamer encoding -> FFmpeg RTSP push."""
+        # Hybrid Pipeline: 
+        # 1. GStreamer: Raw BGR -> NVENC (Hardware) -> H.264 ByteStream -> STDOUT
+        # 2. FFmpeg: STDIN (H.264) -> RTSP (TCP)
+        
+        # Note: We use sh -c to allow piping
+        rtsp_url = self.rtsp_url
+        
+        gst_section = (
+            "gst-launch-1.0 fdsrc ! "
+            "videoparse width=640 height=480 format=bgr framerate=30/1 ! "
+            "videoconvert ! nvvidconv ! "
+            "nvv4l2h264enc bitrate=2000000 insert-sps-pps=true ! "
+            "h264parse ! video/x-h264,stream-format=byte-stream ! "
+            "fdsink"
+        )
+        
+        ffmpeg_section = (
+            f"ffmpeg -re -f h264 -i - "
+            f"-c copy -f rtsp -rtsp_transport tcp {rtsp_url}"
+        )
+        
+        full_cmd = f"{gst_section} | {ffmpeg_section}"
+        
+        logger.info(f"Hybrid Command: {full_cmd}")
+        
+        process = None
+        try:
+            # Must ensure GST_PLUGIN_PATH is passed
+            env = os.environ.copy()
+            if "/usr/lib/aarch64-linux-gnu/gstreamer-1.0" not in env.get("GST_PLUGIN_PATH", ""):
+                existing = env.get("GST_PLUGIN_PATH", "")
+                env["GST_PLUGIN_PATH"] = f"/usr/lib/aarch64-linux-gnu/gstreamer-1.0/:{existing}"
+
+            # Use shell=True or sh -c for pipes. 
+            # We redirect stderr to PIPE to avoid spamming console but capture if needed.
+            process = subprocess.Popen(full_cmd, shell=True, stdin=subprocess.PIPE, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, env=env)
+        except Exception as e:
+            logger.error(f"Failed to start Hybrid Pipeline: {e}")
+            return
+
+        import queue
+        while self.running:
+            try:
+                # Wait for frame
+                frame = self.stream_queue.get(timeout=0.5)
+                try:
+                    process.stdin.write(frame.tobytes())
+                    process.stdin.flush() # Ensure it goes out
+                except BrokenPipeError:
+                    logger.warning("GStreamer pipe broken")
+                    break
+            except queue.Empty:
+                continue
+            except Exception as e:
+                logger.error(f"Error in stream writer: {e}")
+                
+        if process:
+            process.terminate()
+            try:
+                process.wait(timeout=1.0)
+            except subprocess.TimeoutExpired:
+                 process.kill()
+
+    def _apply_overlays(self, img):
+        # RTSP Label
+        cv2.putText(img, self.rtsp_url, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
+        
+        sound_risk = getattr(self.state, "sound_risk", False)
+        if self.state.risk_binary or sound_risk:
+            now = time.time()
+            opacity = (math.sin(now * 5) + 1) / 2 * 0.5 + 0.2
+            overlay = np.full_like(img, (0, 0, 255))
+            cv2.addWeighted(overlay, opacity, img, 1 - opacity, 0, img)
+            cv2.rectangle(img, (0, 0), (img.shape[1], img.shape[0]), (0, 0, 255), 20)
+            cv2.putText(img, "RISK DETECTED", (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0, 0, 255), 3)
+            
+        if self.state.auto_analyze:
+            cv2.putText(img, "AUTO: ON", (10, img.shape[0] - 20), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
+
+# Helper to scan devices
+import functools
+
+@functools.lru_cache(maxsize=1)
+def get_video_devices():
+    import glob
+    devices = glob.glob("/dev/video*")
+    return sorted(devices) if devices else ["/dev/video0"]
+
+@functools.lru_cache(maxsize=1)
+def get_audio_devices():
+    devices = ["default"]
+    pulse_entries = 0
+    try:
+        # Parse 'arecord -l' output for hardware devices
+        # Format: card 1: PCH [HDA Intel PCH], device 0: ALC1220 Analog [ALC1220 Analog]
+        output = subprocess.check_output(['arecord', '-l']).decode('utf-8')
+        for line in output.splitlines():
+            match = re.search(r'card (\d+): .*? \[(.*?)\], device (\d+): .*? \[(.*?)\]', line)
+            if match:
+                card_id = match.group(1)
+                card_name = match.group(2)
+                dev_id = match.group(3)
+                dev_name = match.group(4)
+                # Construct ALSA device string: hw:CARD,DEV
+                alsa_dev = f"hw:{card_id},{dev_id}"
+                label = f"{card_name} - {dev_name} ({alsa_dev})"
+                devices.append(label)
+    except Exception as e:
+        logger.error(f"Error listing audio devices: {e}")
+        
+    # Also try PulseAudio
+    try:
+        # pactl list sources short
+        # Format: 0	alsa_output.pci-0000_00_1f.3.analog-stereo.monitor	module-alsa-card.c	s16le 2ch 44100Hz	SUSPENDED
+        output = subprocess.check_output(['pactl', 'list', 'sources', 'short']).decode('utf-8')
+        for line in output.splitlines():
+            parts = line.split('\t')
+            if len(parts) >= 2:
+                name = parts[1]
+                # Filter out monitor sources if desired, but sometimes they are useful
+                if "monitor" not in name:
+                    label = f"Pulse: {name}"
+                    # Store as pulse:name
+                    devices.append(f"{label} (pulse:{name})")
+                    pulse_entries += 1
+    except Exception as e:
+        logger.warning(f"PulseAudio not available: {e}")
+ 
+    if pulse_entries == 0 and os.getenv("PULSE_SERVER"):
+         devices.append("Pulse: default (pulse:default)")
+        
+    return devices
