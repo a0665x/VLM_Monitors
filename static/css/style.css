@@ -27,6 +27,7 @@ body {
     background: linear-gradient(135deg, var(--bg-primary) 0%, var(--bg-secondary) 100%);
     color: var(--text-primary);
     min-height: 100vh;
+    min-height: 100dvh;
     overflow-x: hidden;
 }
 
@@ -550,7 +551,7 @@ body {
     flex-direction: column;
     gap: 1rem;
     overflow-y: auto;
-    max-height: calc(100vh - 150px);
+    max-height: calc(100dvh - 150px);
 }
 
 .section {
@@ -677,6 +678,7 @@ body {
 }
 
 .btn {
+    min-height: 44px;
     padding: 0.75rem 1.5rem;
     border: none;
     border-radius: 8px;
@@ -954,6 +956,36 @@ textarea.form-control {
     transform: translateX(0);
 }
 
+.btn:focus-visible,
+.segment-option:focus-visible,
+.accordion-header:focus-visible,
+.source-select-button:focus-visible,
+.source-monitor-button:focus-visible,
+.source-disconnect-button:focus-visible,
+.form-control:focus-visible,
+.toggle-switch:focus-within {
+    outline: 3px solid var(--accent-primary);
+    outline-offset: 2px;
+}
+
+.btn:active,
+.segment-option:active,
+.accordion-header:active,
+.source-select-button:active,
+.source-monitor-button:active,
+.source-disconnect-button:active {
+    transform: scale(0.98);
+}
+
+@media (hover: none) and (pointer: coarse) {
+    .btn:hover,
+    .btn-success:hover,
+    .btn-primary:hover {
+        transform: none;
+        box-shadow: none;
+    }
+}
+
 /* ==================== Responsive Design ==================== */
 @media (max-width: 1200px) {
     .main-container {
@@ -981,6 +1013,218 @@ textarea.form-control {
 
     .segmented-toggle {
         width: 100%;
+    }
+}
+
+@media (max-width: 600px) {
+    body {
+        padding-bottom: env(safe-area-inset-bottom);
+    }
+
+    .role-gate {
+        align-items: flex-end;
+        padding: 1rem;
+        padding-bottom: max(1rem, env(safe-area-inset-bottom));
+    }
+
+    .role-gate-panel {
+        padding: 1.25rem;
+        border-radius: 16px;
+    }
+
+    .role-gate-actions {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .header {
+        align-items: stretch;
+        gap: 0.75rem;
+        padding: max(0.85rem, env(safe-area-inset-top)) 1rem 0.85rem;
+    }
+
+    .header-left h1 {
+        font-size: 1.35rem;
+        margin-bottom: 0.15rem;
+    }
+
+    .subtitle {
+        display: block;
+        font-size: 0.78rem;
+    }
+
+    .header-right {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+        justify-content: stretch;
+        gap: 0.75rem;
+    }
+
+    .header,
+    .header-left,
+    .header-right,
+    .system-stats,
+    .mode-switch,
+    .segmented-toggle,
+    .main-container,
+    .main-container > *,
+    .video-panel,
+    .control-panel,
+    .source-grid,
+    .source-tile,
+    .source-tile-stream {
+        min-width: 0;
+        max-width: 100%;
+    }
+
+    .system-stats {
+        flex: 1;
+        justify-content: space-between;
+        gap: 0.5rem;
+    }
+
+    .stat-value {
+        font-size: 1rem;
+    }
+
+    .connection-status {
+        flex: 0 0 auto;
+        padding: 0.5rem 0.7rem;
+        font-size: 0.78rem;
+    }
+
+    .mode-switch,
+    .main-container,
+    .camera-src-view {
+        padding-left: 0.75rem;
+        padding-right: 0.75rem;
+    }
+
+    .main-container,
+    .camera-src-view {
+        padding-top: 0.75rem;
+        padding-bottom: 0.75rem;
+    }
+
+    .main-container {
+        gap: 0.75rem;
+    }
+
+    .video-panel,
+    .section {
+        padding: 1rem;
+        border-radius: 10px;
+    }
+
+    .panel-header,
+    .room-toolbar,
+    .source-tile-header,
+    .source-tile-meta {
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .panel-header h2 {
+        font-size: 1.25rem;
+    }
+
+    .situation-grid,
+    .situation-grid.grid-2,
+    .situation-grid.grid-3,
+    .inference-meta {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .source-tile {
+        padding: 0.65rem;
+    }
+
+    .source-tile-actions {
+        width: 100%;
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .source-select-button,
+    .source-monitor-button,
+    .source-disconnect-button,
+    .btn,
+    .segment-option,
+    .accordion-header,
+    .form-control {
+        min-height: 44px;
+    }
+
+    .source-select-button,
+    .source-monitor-button,
+    .source-disconnect-button {
+        width: 100%;
+        text-align: center;
+    }
+
+    .control-panel {
+        max-height: none;
+        overflow-y: visible;
+    }
+
+    .status-indicator {
+        padding: 1.25rem;
+    }
+
+    .status-text {
+        font-size: 1.5rem;
+    }
+
+    .toggle-group {
+        min-height: 44px;
+        gap: 0.75rem;
+    }
+
+    .slider-input {
+        width: 100%;
+        margin-right: 0;
+    }
+
+    .url-item {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .url-item label {
+        min-width: 0;
+    }
+
+    .url-item code {
+        width: 100%;
+        overflow-wrap: anywhere;
+    }
+
+    .accordion-header,
+    .accordion-content.active {
+        padding-left: 1rem;
+        padding-right: 1rem;
+    }
+
+    .toast {
+        right: 0.75rem;
+        bottom: max(0.75rem, env(safe-area-inset-bottom));
+        left: 0.75rem;
+        max-width: none;
+        transform: translateY(calc(100% + 2rem));
+    }
+
+    .toast.show {
+        transform: translateY(0);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        scroll-behavior: auto !important;
+        animation: none !important;
+        transition-duration: 0.01ms !important;
     }
 }
 

@@ -87,7 +87,7 @@ def test_notification_settings_route_updates_notifier_webhook():
     assert test_state.notifier.webhook_url == "https://example.com/webhook"
 
 
-def test_situation_room_mode_is_single_owner():
+def test_situation_room_mode_allows_shared_clients():
     test_state = AppState()
     server.app_state = test_state
 
@@ -99,24 +99,23 @@ def test_situation_room_mode_is_single_owner():
     )
     assert first.status_code == 200
     assert first.get_json()["mode"] == "situation"
-    assert test_state.situation_room_client_id == "room-a"
+    assert test_state.situation_room_client_id == ""
 
     second = client.post(
         "/api/mode",
         json={"mode": "situation", "client_id": "room-b", "source_id": "agx-local"},
     )
-    assert second.status_code == 409
-    payload = second.get_json()
-    assert payload["forced_mode"] == "camera"
-    assert test_state.situation_room_client_id == "room-a"
+    assert second.status_code == 200
+    assert second.get_json()["mode"] == "situation"
+    assert test_state.situation_room_client_id == ""
 
 
-def test_camera_mode_registers_remote_source():
+def test_camera_mode_registers_remote_source_only_when_requested():
     test_state = AppState()
     server.app_state = test_state
 
     client = app.test_client()
-    response = client.post(
+    idle_response = client.post(
         "/api/mode",
         json={
             "mode": "camera",
@@ -126,8 +125,22 @@ def test_camera_mode_registers_remote_source():
         },
     )
 
-    assert response.status_code == 200
-    assert response.get_json()["mode"] == "camera"
+    assert idle_response.status_code == 200
+    assert idle_response.get_json()["mode"] == "camera"
+    assert "phone-a" not in test_state.sources
+
+    publish_response = client.post(
+        "/api/mode",
+        json={
+            "mode": "camera",
+            "client_id": "phone-a-client",
+            "source_id": "phone-a",
+            "label": "Phone A",
+            "register_source": True,
+        },
+    )
+
+    assert publish_response.status_code == 200
     assert "phone-a" in test_state.sources
     assert test_state.sources["phone-a"]["label"] == "Phone A"
     assert test_state.sources["phone-a"]["status"] == "online"

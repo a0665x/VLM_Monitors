@@ -2,15 +2,15 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>VLM_Monitors - Risk Detection</title>
     <link rel="stylesheet" href="/static/css/style.css">
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>👁️</text></svg>">
 </head>
 <body>
-    <div class="role-gate" id="role-gate">
+    <div class="role-gate" id="role-gate" role="dialog" aria-modal="true" aria-labelledby="role-gate-title">
             <div class="role-gate-panel">
-                <h2>Choose Device Role</h2>
+                <h2 id="role-gate-title">Choose Device Role</h2>
             <p class="helper-copy">Pick how this browser should join the shared backend before opening any live view.</p>
             <div class="role-gate-actions">
                 <button class="btn btn-primary" id="enter-situation-room-btn">Enter Situation Room</button>
@@ -333,7 +333,7 @@
     </main>
 
     <!-- Toast Notification -->
-    <div class="toast" id="toast"></div>
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
     <!-- Scripts -->
     <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>

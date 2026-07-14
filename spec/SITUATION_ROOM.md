@@ -80,6 +80,23 @@ The frontend internally uses the printed `Public RTC` base URL for:
 
 For HTTPS `Situation Room` viewing on phones, the frontend can use same-origin proxied HLS playback to avoid ngrok/WebRTC iframe problems. `run.sh` is now responsible for choosing and printing the correct HTTPS entry path first.
 
+## Mobile Layout Contract
+
+`static/css/style.css` defines a dedicated phone layout at `max-width: 600px`:
+
+- all Situation Room source grids collapse to one column
+- header metrics compact without hiding runtime status
+- source actions use touch-sized controls with a 44 px minimum target
+- the control panel returns to normal document scrolling rather than a nested viewport-height scroller
+- the role gate behaves as a bottom sheet
+- toasts span the available width above the device safe area and announce updates through an ARIA live region
+- keyboard focus remains visible and touch presses receive tactile feedback
+- coarse-pointer devices do not inherit hover-only transforms
+- `viewport-fit=cover` and `env(safe-area-inset-*)` support notched iOS devices
+- `prefers-reduced-motion` disables nonessential animation
+
+Treat 390x844 and 360x800 as the minimum phone smoke-test viewports. Mobile controls must not depend on hover or create horizontal document overflow.
+
 ## Source Registry
 
 Backend source registry fields currently include:

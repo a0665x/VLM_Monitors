@@ -18,6 +18,14 @@ Focused notifier tests:
 pytest tests/test_notifier.py
 ```
 
+Mobile WebUI contract tests:
+
+```bash
+pytest tests/unit/test_mobile_webui.py -q
+```
+
+These tests guard the responsive viewport declaration, phone breakpoint, single-column source grids, touch-target floor, safe-area handling, keyboard/touch feedback, ARIA live feedback, overflow containment, and reduced-motion rules. They do not replace a rendered browser smoke test.
+
 ## Syntax And Import Checks
 
 Useful lightweight checks:
