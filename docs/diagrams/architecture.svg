@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="584" viewBox="0 0 1200 584" role="img" aria-labelledby="title desc">
+<title id="title">VLM Monitor architecture</title><desc id="desc">Host and phone cameras connect to the local service. Clients watch streams while a selected frame is analyzed by a vision model and optional Qwen classifier.</desc>
+<defs><marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0L8 4L0 8" fill="#608074"/></marker></defs>
+<rect width="1200" height="584" rx="18" fill="#ffffff"/>
+<g font-family="Arial,Helvetica,sans-serif">
+<text x="32" y="48" font-size="26" font-weight="700" fill="#142b35">One host. Every camera. Any connected device.</text>
+<text x="32" y="80" font-size="15" fill="#607583">Private access through Tailscale · Scan the host QR code to join</text>
+<rect x="24" y="114" width="244" height="394" rx="12" fill="#f1f5f9" stroke="#dce4ee" stroke-width="1.5"/>
+<text x="48" y="146" font-size="13" font-weight="700" letter-spacing="1.3" fill="#607583">CAMERA SOURCES</text>
+<rect x="300" y="114" width="532" height="394" rx="12" fill="#effaf6" stroke="#cce9df" stroke-width="1.5"/>
+<text x="324" y="146" font-size="13" font-weight="700" letter-spacing="1.3" fill="#607583">LOCAL AI HOST</text>
+<rect x="864" y="114" width="312" height="394" rx="12" fill="#eff5ff" stroke="#d4e1f8" stroke-width="1.5"/>
+<text x="888" y="146" font-size="13" font-weight="700" letter-spacing="1.3" fill="#607583">BROWSER CLIENTS</text>
+<rect x="48" y="218" width="196" height="74" rx="12" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.5"/>
+<text x="146.0" y="248" text-anchor="middle" font-size="17" font-weight="700" fill="#183c36">Host camera</text>
+<text x="146.0" y="271" text-anchor="middle" font-size="13" fill="#607583">USB / V4L2</text>
+<rect x="48" y="366" width="196" height="74" rx="12" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.5"/>
+<text x="146.0" y="396" text-anchor="middle" font-size="17" font-weight="700" fill="#183c36">Phone cameras</text>
+<text x="146.0" y="419" text-anchor="middle" font-size="13" fill="#607583">WebRTC publishing</text>
+<rect x="332" y="218" width="468" height="74" rx="12" fill="#ffffff" stroke="#9fcebc" stroke-width="1.5"/>
+<text x="566.0" y="248" text-anchor="middle" font-size="17" font-weight="700" fill="#183c36">Camera &amp; control service</text>
+<text x="566.0" y="271" text-anchor="middle" font-size="13" fill="#607583">MediaMTX · Flask · Socket.IO</text>
+<rect x="332" y="366" width="216" height="74" rx="12" fill="#ffffff" stroke="#9fcebc" stroke-width="1.5"/>
+<text x="440.0" y="396" text-anchor="middle" font-size="17" font-weight="700" fill="#183c36">Vision model</text>
+<text x="440.0" y="419" text-anchor="middle" font-size="13" fill="#607583">Ollama / vLLM</text>
+<rect x="584" y="366" width="216" height="74" rx="12" fill="#ffffff" stroke="#9fcebc" stroke-width="1.5"/>
+<text x="692.0" y="396" text-anchor="middle" font-size="17" font-weight="700" fill="#183c36">Scenario classifier</text>
+<text x="692.0" y="419" text-anchor="middle" font-size="13" fill="#607583">Qwen 1.5B · optional</text>
+<rect x="896" y="218" width="248" height="74" rx="12" fill="#ffffff" stroke="#b7ccec" stroke-width="1.5"/>
+<text x="1020.0" y="248" text-anchor="middle" font-size="17" font-weight="700" fill="#183c36">Watch &amp; share</text>
+<text x="1020.0" y="271" text-anchor="middle" font-size="13" fill="#607583">Desktop · iPhone · Android</text>
+<rect x="896" y="366" width="248" height="74" rx="12" fill="#ffffff" stroke="#b7ccec" stroke-width="1.5"/>
+<text x="1020.0" y="396" text-anchor="middle" font-size="17" font-weight="700" fill="#183c36">Analysis results</text>
+<text x="1020.0" y="419" text-anchor="middle" font-size="13" fill="#607583">Explanation · scenario scores</text>
+<polyline points="244,255 332,255" fill="none" stroke="#608074" stroke-width="2" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="244,403 282,403 282,275 332,275" fill="none" stroke="#608074" stroke-width="2" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="800,255 896,255" fill="none" stroke="#608074" stroke-width="2" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<text x="848" y="241" text-anchor="middle" font-size="12" fill="#607583">Video</text>
+<polyline points="440,292 440,366" fill="none" stroke="#608074" stroke-width="2" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<text x="501" y="333" text-anchor="middle" font-size="12" fill="#607583">Selected frame</text>
+<polyline points="548,403 584,403" fill="none" stroke="#608074" stroke-width="2" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<polyline points="800,403 896,403" fill="none" stroke="#608074" stroke-width="2" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<text x="848" y="389" text-anchor="middle" font-size="12" fill="#607583">Scores</text>
+<polyline points="440,440 440,477 1020,477 1020,440" fill="none" stroke="#608074" stroke-width="2" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<text x="716" y="469" text-anchor="middle" font-size="12" fill="#607583">Direct analysis</text>
+<text x="32" y="551" font-size="14" fill="#607583">Choose a camera → select scenario cards or a prompt → view results on the host or phone</text></g></svg>
