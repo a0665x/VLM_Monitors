@@ -1,3 +1,4 @@
+from adapters.inference_client import backend_name, default_model
 import threading
 import time
 from services.notifier import TwilioNotifier
@@ -21,10 +22,15 @@ class AppState:
         self.streaming_source_id = ""
         self.analysis_epoch = 0
         
+        self.decision_settings = {"mode": "direct", "scenarios": ["person", "baby", "fire", "smoke", "pet"]}
+        self.decision_result = None
+        self.decision_history = []
+
         # Settings
         self.auto_analyze = False
         self.analysis_interval = 5.0
-        self.scoring_model = "qwen3-vl:8b"
+        self.inference_backend = backend_name()
+        self.scoring_model = default_model()
         self.risk_threshold = 3
         self.show_inference_overlay = False
         self.alert_cooldown = 60.0
@@ -53,7 +59,7 @@ class AppState:
         # Multi-source situation room
         self.local_source_id = "agx-local"
         self.selected_source_id = self.local_source_id
-        self.selected_source_label = "AGX Local Camera"
+        self.selected_source_label = "本機相機"
         self.active_source_id = self.local_source_id
         self.ui_mode = "situation"
         self.situation_room_client_id = ""

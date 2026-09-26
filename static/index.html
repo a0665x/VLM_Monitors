@@ -5,28 +5,36 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>VLM_Monitors - Risk Detection</title>
     <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="/static/css/workspace.css">
+    <link rel="stylesheet" href="/static/css/shell.css">
+    <script src="/static/js/locales.js"></script><script src="/static/js/i18n.js"></script>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>👁️</text></svg>">
-</head>
-<body>
-    <div class="role-gate" id="role-gate" role="dialog" aria-modal="true" aria-labelledby="role-gate-title">
+<link rel="stylesheet" href="/static/css/decisions.css"></head>
+<body class="host-app" data-page="monitor">
+    <aside class="app-sidebar" aria-label="Main navigation">
+      <a class="sidebar-brand" href="#monitor"><span class="brand-mark">V</span> VLM Monitor</a>
+      <nav><button data-page-link="monitor" aria-current="page">監控</button><button data-page-link="connect">手機連線</button><button data-page-link="settings">設定</button></nav>
+      <div class="sidebar-bottom"><label for="ui-language">語言</label><select id="ui-language" data-language-select aria-label="Language"><option value="en">English</option><option value="zh-TW">繁體中文</option><option value="ja">日本語</option><option value="ko">한국어</option></select><p>本機 AI 監控</p></div>
+    </aside>
+    <div class="role-gate hidden" id="role-gate" role="dialog" aria-modal="true" aria-labelledby="role-gate-title">
             <div class="role-gate-panel">
-                <h2 id="role-gate-title">Choose Device Role</h2>
-            <p class="helper-copy">Pick how this browser should join the shared backend before opening any live view.</p>
+                <h2 id="role-gate-title">開啟監控工作台</h2>
+            <p class="helper-copy">查看主機影像，或把此裝置加入為新的相機來源。</p>
             <div class="role-gate-actions">
-                <button class="btn btn-primary" id="enter-situation-room-btn">Enter Situation Room</button>
-                <button class="btn btn-success" id="enter-camera-src-btn">Enter Camera SRC</button>
+                <button class="btn btn-primary" id="enter-situation-room-btn">查看監控</button>
+                <button class="btn btn-success" id="enter-camera-src-btn">分享此裝置相機</button>
             </div>
-            <p class="helper-copy" id="role-gate-status">No role selected yet.</p>
+            <p class="helper-copy" id="role-gate-status">手機觀看請選擇「查看監控」。</p>
         </div>
     </div>
 
     <!-- Header -->
     <header class="header">
         <div class="header-left">
-            <h1>👁️ VLM_Monitors</h1>
-            <span class="subtitle">AI-Powered Risk Detection System</span>
+            <h1><span class="brand-mark">V</span> VLM Monitor</h1>
+            <span class="subtitle">即時影像 · 視覺監控工作台</span>
         </div>
-        <div class="header-right">
+        <div class="header-right"><button class="btn quiet" id="share-open">手機掃碼連線</button><button class="btn quiet" id="settings-open">設定</button>
             <div class="system-stats">
                 <div class="stat-item">
                     <span class="stat-label">CPU</span>
@@ -37,7 +45,7 @@
                     <span class="stat-value" id="ram-usage">--</span>
                 </div>
                 <div class="stat-item">
-                    <span class="stat-label">GPU</span>
+                    <span class="stat-label" title="Includes desktop, browser and AI activity">System GPU</span>
                     <span class="stat-value" id="gpu-usage">--</span>
                 </div>
             </div>
@@ -48,10 +56,18 @@
         </div>
     </header>
 
+    <section id="phone-connect" class="phone-connect" aria-labelledby="phone-connect-title">
+      <div><p class="eyebrow">加入手機</p><h2 id="phone-connect-title">手機掃碼，就能看所有相機</h2><p>也可以把手機當作相機，分享給其他已連線的裝置。</p>
+      <ol><li>手機開啟 Tailscale，登入主機所在的網路。</li><li>掃右側 QR code，進入「查看所有相機」。</li><li>要提供影像，點「分享我的相機」。</li></ol>
+      <p data-connect-status role="status">正在確認連線…</p><a data-connect-link hidden target="_blank" rel="noopener">開啟手機頁面 ↗</a>
+      <details><summary>手機連不上？</summary><p>先開啟 Tailscale，再掃一次。可到 <a href="https://console.tailscale.com/admin/machines" target="_blank" rel="noopener">裝置管理</a> 確認主機與手機在線。</p><button type="button" class="btn quiet" data-connect-refresh>重新檢查</button></details></div>
+      <div class="connect-code"><img data-connect-qr alt="手機掃描後可查看或分享相機" hidden><p data-connect-placeholder>正在準備 QR code…</p><span>用手機相機掃描</span></div>
+    </section>
+
     <nav class="mode-switch" aria-label="Application mode">
         <div class="segmented-toggle" role="radiogroup" aria-label="Choose how this device is used">
-            <button class="segment-option active" id="situation-room-mode" data-mode="situation" role="radio" aria-checked="true">Situation Room</button>
-            <button class="segment-option" id="camera-src-mode" data-mode="camera" role="radio" aria-checked="false">Camera SRC</button>
+            <button class="segment-option active" id="situation-room-mode" data-mode="situation" role="radio" aria-checked="true">監控工作台</button>
+            <button class="segment-option" id="camera-src-mode" data-mode="camera" role="radio" aria-checked="false">分享此裝置相機</button>
         </div>
     </nav>
 
@@ -60,15 +76,15 @@
         <!-- Left Panel - Video Feed -->
         <div class="video-panel">
             <div class="panel-header">
-                <h2>Situation Room</h2>
+                <h2>即時影像 <span class="live-chip">LIVE</span></h2>
                 <div class="stream-info">
-                    <span id="stream-status">Loading...</span>
+                    <span id="stream-status">即時影像</span>
                 </div>
             </div>
             <div class="room-toolbar">
                 <div class="room-selection">
-                    <span class="room-selection-label">Analyze Source</span>
-                    <strong id="selected-source-label">AGX Local Camera</strong>
+                    <span class="room-selection-label">分析來源</span>
+                    <strong id="selected-source-label">本機相機</strong>
                 </div>
                 <div class="room-lock" id="room-lock-status">Shared Situation Room control</div>
             </div>
@@ -85,10 +101,10 @@
         <div class="control-panel">
             <!-- Risk Status -->
             <div class="section risk-status">
-                <h2>🛡️ Risk Intelligence</h2>
+                <h2>分析結果</h2>
                 <div class="status-display">
                     <div class="status-indicator" id="status-indicator">
-                        <span class="status-text" id="status-text">SAFE</span>
+                        <span class="status-text" id="status-text">尚未分析</span>
                     </div>
                     <div class="confidence-meter">
                         <label>Confidence Score</label>
@@ -98,20 +114,20 @@
                         <span class="meter-value" id="confidence-value">0.00</span>
                     </div>
                     <div class="explanation-box">
-                        <label>Explanation</label>
-                        <p id="explanation-text">Waiting for analysis...</p>
+                        <label>判斷說明</label>
+                        <p id="explanation-text">選擇情境後，按「分析一次」或開始持續監控。</p>
                     </div>
                     <div class="inference-meta">
                         <div>
-                            <span>Model</span>
+                            <span>模型</span>
                             <strong id="inference-model">--</strong>
                         </div>
                         <div>
-                            <span>Latency</span>
+                            <span>耗時</span>
                             <strong id="inference-latency">--</strong>
                         </div>
                         <div>
-                            <span>Last Run</span>
+                            <span>上次分析</span>
                             <strong id="inference-last-run">--</strong>
                         </div>
                     </div>
@@ -120,18 +136,18 @@
 
             <!-- Analysis Controls -->
             <div class="section analysis-controls">
-                <h3>⚙️ Analysis Controls</h3>
+                <h3>監控操作</h3>
                 <div class="control-group">
                     <button class="btn btn-primary" id="analyze-once-btn">
                         <span class="btn-icon">🔍</span>
-                        Analyze Once
+                        分析一次
                     </button>
                     <div class="toggle-group">
                         <label class="toggle-switch">
                             <input type="checkbox" id="auto-analysis-toggle">
                             <span class="slider"></span>
                         </label>
-                        <label for="auto-analysis-toggle">Auto Analysis</label>
+                        <label for="auto-analysis-toggle">持續監控</label>
                     </div>
                 </div>
                 
@@ -158,7 +174,7 @@
                             <input type="checkbox" id="sound-detection-toggle">
                             <span class="slider"></span>
                         </label>
-                        <label for="sound-detection-toggle">Sound Detection</label>
+                        <label for="sound-detection-toggle">聲音音量偵測</label>
                     </div>
                     <div class="sound-info" id="sound-info" style="display: none;">
                         <div class="sound-meter-row">
@@ -184,23 +200,23 @@
             <div class="section settings-accordion">
                 <div class="accordion-item">
                     <button class="accordion-header" data-target="analysis-settings">
-                        <span>📊 Analysis Settings</span>
+                        <span>推論與頻率</span>
                         <span class="accordion-icon">▼</span>
                     </button>
                     <div class="accordion-content" id="analysis-settings">
                         <div class="form-group">
                             <label for="model-select">Vision Model</label>
                             <select id="model-select" class="form-control">
-                                <option>Loading...</option>
+                                <option>即時影像</option>
                             </select>
                         </div>
                         <div class="form-group">
-                            <label for="interval-slider">Analysis Interval (s)</label>
+                            <label for="interval-slider">分析間隔 (s)</label>
                             <input type="range" id="interval-slider" min="0" max="60" value="5" class="slider-input">
                             <span id="interval-value">5s</span>
                         </div>
                         <div class="form-group">
-                            <label for="threshold-slider">Risk Threshold</label>
+                            <label for="threshold-slider">連續觸發次數</label>
                             <input type="range" id="threshold-slider" min="1" max="10" value="3" class="slider-input">
                             <span id="threshold-value">3</span>
                         </div>
@@ -209,14 +225,14 @@
                                 <input type="checkbox" id="show-inference-overlay-toggle">
                                 <span class="slider"></span>
                             </label>
-                            <label for="show-inference-overlay-toggle">Show live inference text on monitored tile</label>
+                            <label for="show-inference-overlay-toggle">在影像上顯示即時推論文字</label>
                         </div>
                     </div>
                 </div>
 
                 <div class="accordion-item">
                     <button class="accordion-header" data-target="notification-settings">
-                        <span>🔔 Notifications</span>
+                        <span>通知設定</span>
                         <span class="accordion-icon">▼</span>
                     </button>
                     <div class="accordion-content" id="notification-settings">
@@ -254,20 +270,20 @@
 
                 <div class="accordion-item">
                     <button class="accordion-header" data-target="device-settings">
-                        <span>🎥 Device Settings</span>
+                        <span>相機與音訊</span>
                         <span class="accordion-icon">▼</span>
                     </button>
                     <div class="accordion-content" id="device-settings">
                         <div class="form-group">
                             <label for="video-device-select">Video Device</label>
                             <select id="video-device-select" class="form-control">
-                                <option>Loading...</option>
+                                <option>即時影像</option>
                             </select>
                         </div>
                         <div class="form-group">
                             <label for="audio-device-select">Audio Device</label>
                             <select id="audio-device-select" class="form-control">
-                                <option>Loading...</option>
+                                <option>即時影像</option>
                             </select>
                         </div>
                         <div class="toggle-group">
@@ -283,21 +299,21 @@
 
                 <div class="accordion-item">
                     <button class="accordion-header" data-target="prompt-settings">
-                        <span>📝 Risk Criteria</span>
+                        <span>自訂提示詞</span>
                         <span class="accordion-icon">▼</span>
                     </button>
                     <div class="accordion-content" id="prompt-settings">
                         <div class="form-group">
-                            <label for="prompt-textarea">Detection Prompt</label>
+                            <label for="prompt-textarea">判斷條件 / Prompt</label>
                             <textarea id="prompt-textarea" class="form-control" rows="6" placeholder="Describe what constitutes a risk..."></textarea>
                         </div>
                         <div class="form-group">
-                            <label for="prompt-history">History</label>
+                            <label for="prompt-history">提示詞歷史</label>
                             <select id="prompt-history" class="form-control">
-                                <option value="">Select from history...</option>
+                                <option value="">選擇先前的提示詞</option>
                             </select>
                         </div>
-                        <button class="btn btn-success" id="apply-prompt-btn">Apply Criteria</button>
+                        <button class="btn btn-success" id="apply-prompt-btn">套用提示詞</button>
                     </div>
                 </div>
             </div>
@@ -315,7 +331,7 @@
             <div class="camera-src-layout">
                 <div class="section source-instructions">
                     <h3>This Device</h3>
-                    <p class="helper-copy">Turn this phone or laptop into a live camera for the Situation Room. AI monitoring stays on the AGX service. Phones must open the HTTPS UI URL before sharing.</p>
+                    <p class="helper-copy">Turn this phone or laptop into a live camera for the Situation Room. AI monitoring runs on the host service. Phones must open the HTTPS UI URL before sharing.</p>
                     <p class="helper-copy" id="camera-publish-status">Ready. Fill source info, then press Start Camera Sharing.</p>
                     <div class="form-group">
                         <label for="camera-source-id">Camera name</label>
@@ -332,6 +348,24 @@
         </section>
     </main>
 
+    <section id="settings-dialog" class="settings-page" aria-labelledby="settings-title" hidden>
+      <div class="dialog-heading"><div><p class="eyebrow">PREFERENCES</p><h2 id="settings-title">服務設定</h2></div><span class="runtime-chip">即時生效</span></div>
+      <section class="language-settings"><h3>顯示語言</h3><select data-language-select aria-label="Language"><option value="en">English</option><option value="zh-TW">繁體中文</option><option value="ja">日本語</option><option value="ko">한국어</option></select><p class="helper-copy">只變更介面語言，保留提示詞與模型輸出。</p></section>
+      <section class="decision-settings"><h3>Analysis mode</h3><label for="decision-mode">Mode</label><select id="decision-mode" class="form-control"><option value="direct">Single scenario · Vision</option><option value="parallel_decision">Multi-scenario · Parallel classifier (experimental)</option></select><p class="helper-copy">Vision observations → Qwen 1.5B → scenario scores.</p><p class="helper-copy">Experimental · uncalibrated candidate scores · notifications off</p><p id="decision-service-status" role="status" class="helper-copy"></p><button id="decision-save" class="btn btn-primary">Apply analysis mode</button><button id="decision-check" class="btn quiet">Check service</button></section>
+      <section class="engine-settings"><h3>推論引擎</h3><p class="helper-copy">切換引擎與模型，無須重新啟動。</p>
+      <label for="engine-select">框架</label><select id="engine-select" class="form-control"><option value="ollama">Ollama</option><option value="vllm">vLLM</option></select>
+      <label for="engine-model">模型</label><select id="engine-model" class="form-control"></select>
+      <p id="engine-status" role="status" class="helper-copy"></p><button id="engine-save" class="btn btn-primary">套用引擎與模型</button>
+      <p class="helper-copy">vLLM 未啟動時，在主機執行 <code>./run.sh vllm-up</code>。單張顯示卡請先停止另一引擎的模型，避免顯存不足。</p></section>
+      <div id="advanced-settings"></div>
+    </section>
+    <dialog id="share-dialog" aria-labelledby="share-title">
+      <div class="dialog-heading"><div><p class="eyebrow">PRIVATE ACCESS</p><h2 id="share-title">把監控帶到手機</h2></div><button class="btn quiet" data-close="share-dialog">關閉</button></div>
+      <p>手機先連接 Tailscale，再掃碼進入裝置引導：直接觀看，或分享手機相機給其他裝置。</p>
+      <div class="qr-box"><img id="share-qr" alt="開啟私人監控網址的 QR code" hidden><p id="share-message" role="status">正在確認分享狀態…</p></div>
+      <a id="share-link" target="_blank" rel="noopener" hidden></a>
+      <button id="share-refresh" class="btn quiet">重新檢查</button>
+    </dialog>
     <!-- Toast Notification -->
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
@@ -339,5 +373,7 @@
     <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
     <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
     <script src="/static/js/app.js"></script>
-</body>
+    <script src="/static/js/workspace.js"></script>
+    <script src="/static/js/connect.js"></script><script src="/static/js/shell.js"></script>
+<script src="/static/js/decisions.js"></script></body>
 </html>

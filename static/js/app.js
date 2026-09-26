@@ -22,7 +22,7 @@ const state = {
     currentRisk: false,
     analysisRunning: false,
     selectedSourceId: 'agx-local',
-    selectedSourceLabel: 'AGX Local Camera',
+    selectedSourceLabel: '本機相機',
     clientId: '',
     sources: [],
     situationRoomClientId: '',
@@ -104,10 +104,10 @@ function updateConnectionStatus(connected) {
 
     if (connected) {
         statusDot.classList.add('connected');
-        statusText.textContent = 'Connected';
+        window.i18n.text(statusText, 'Connected');
     } else {
         statusDot.classList.remove('connected');
-        statusText.textContent = 'Disconnected';
+        window.i18n.text(statusText, 'Disconnected');
     }
 }
 
@@ -156,7 +156,7 @@ function getSourcePlaybackUrl(source) {
 function setText(id, value) {
     const el = document.getElementById(id);
     if (el) {
-        el.textContent = value;
+        window.i18n.text(el, value);
     }
 }
 
@@ -249,16 +249,12 @@ function hideRoleGate() {
 }
 
 function bootstrapPreferredRole() {
-    const preferredRole = getStoredRole();
-    if (preferredRole === 'situation' || preferredRole === 'camera') {
-        setText('role-gate-status', `Restoring previous role: ${preferredRole}.`);
-        setMode(preferredRole);
-        return;
-    }
-    showRoleGate();
+    // The host always opens its camera workspace; remembered phone roles must not redirect it.
+    setMode('situation');
 }
 
 async function setMode(mode) {
+    if (mode === 'camera') { window.location.assign('/join?mode=publish'); return; }
     const sourceId = normalizeSourceId(document.getElementById('camera-source-id')?.value || 'browser-src');
     const sourceLabel = (document.getElementById('camera-source-label')?.value || sourceId).trim();
     try {
@@ -420,7 +416,7 @@ function renderSourceGrid() {
     }
     const sources = state.sources.length ? state.sources : [{
         id: 'agx-local',
-        label: 'AGX Local Camera',
+        label: '本機相機',
         status: 'online',
         webrtc_url: `${getWebRtcBaseUrl()}/camera`,
         is_local: true
@@ -557,7 +553,7 @@ function updateSourceTileStates() {
         const monitorButton = tile.querySelector('.source-monitor-button');
         if (monitorButton) {
             monitorButton.classList.toggle('active', selected);
-            monitorButton.textContent = selected ? 'Monitoring' : 'Monitor';
+            window.i18n.text(monitorButton, selected ? 'Monitoring' : 'Monitor');
         }
 
         const overlay = tile.querySelector(`[data-overlay-source="${sourceId}"]`);
@@ -624,7 +620,7 @@ function initializeEventListeners() {
             const response = await fetch('/api/analysis/trigger', { method: 'POST' });
             const data = await response.json();
             if (data.success) {
-                showToast('Analysis triggered!');
+                showToast('正在分析目前影像');
             } else if (data.busy) {
                 showToast(data.message || 'Analysis is already running', 'error');
             } else {
@@ -649,11 +645,19 @@ function initializeEventListeners() {
             if (data.success) {
                 state.autoAnalysis = enabled;
                 document.getElementById('notification-controls').style.display = enabled ? 'block' : 'none';
-                showToast(enabled ? 'Auto analysis enabled' : 'Auto analysis disabled');
+                showToast(enabled ? '已開始持續監控' : '已暫停持續監控');
+                loadStatus();
+            }
+            else {
+                e.target.checked = state.autoAnalysis;
+                showToast(data.error || 'Failed to trigger analysis', 'error');
                 loadStatus();
             }
         } catch (error) {
             console.error('Auto analysis toggle error:', error);
+            e.target.checked = state.autoAnalysis;
+            showToast('Failed to trigger analysis', 'error');
+            loadStatus();
         }
     });
 
@@ -844,7 +848,8 @@ async function applyPromptText(text) {
         });
         const data = await response.json();
         if (data.success) {
-            showToast('Risk criteria updated!');
+            showToast('偵測條件已套用');
+            document.dispatchEvent(new CustomEvent('prompt-applied', {detail: text}));
             if (data.status) {
                 updateRiskStatus(data.status);
             }
@@ -1016,7 +1021,7 @@ function updateRiskStatus(data) {
     const isRisk = data.risk;
     const score = data.score || 0;
     const isRunning = !!data.analysis_running;
-    const explanation = data.last_inference_error || data.explanation || 'Waiting for analysis...';
+    const explanation = data.last_inference_error || data.explanation || window.i18n.t('選擇情境後開始分析。');
     state.selectedSourceId = data.source_id || state.selectedSourceId;
     state.selectedSourceLabel = data.source_label || state.selectedSourceLabel;
     state.analysisRunning = !!data.analysis_running;
@@ -1033,16 +1038,18 @@ function updateRiskStatus(data) {
     if (isRunning) {
         statusIndicator.classList.remove('risk');
         statusIndicator.classList.add('analyzing');
-        statusText.textContent = 'ANALYZING';
+        window.i18n.text(statusText, '正在分析');
     } else if (isRisk) {
         statusIndicator.classList.remove('analyzing');
         statusIndicator.classList.add('risk');
-        statusText.textContent = 'RISK DETECTED';
+        window.i18n.text(statusText, '偵測到目標');
     } else {
         statusIndicator.classList.remove('analyzing');
         statusIndicator.classList.remove('risk');
-        statusText.textContent = 'SAFE';
+        window.i18n.text(statusText, data.last_inference_error ? '分析失敗' : (data.last_inference_text ? '未偵測到目標' : '尚未分析'));
     }
+
+    statusIndicator.classList.toggle('idle', !isRunning && !isRisk && !data.last_inference_text);
 
     // Update confidence meter
     const confidenceFill = document.getElementById('confidence-fill');
@@ -1051,7 +1058,9 @@ function updateRiskStatus(data) {
     confidenceValue.textContent = score.toFixed(2);
 
     // Update explanation
-    document.getElementById('explanation-text').textContent = explanation;
+    const explanationNode=document.getElementById('explanation-text');
+    if(data.last_inference_text || data.last_inference_error) explanationNode.textContent=explanation;
+    else explanationNode.textContent=window.i18n.t(explanation);
     updateInferenceMeta(data);
 
     // Update sound info if enabled
@@ -1061,6 +1070,7 @@ function updateRiskStatus(data) {
     state.autoAnalysis = !!data.auto_analyze;
     syncAnalysisControls(data);
     updateSourceTileStates();
+    document.dispatchEvent(new CustomEvent('monitor-status', {detail: data}));
 }
 
 function dbToPercent(db) {
@@ -1275,7 +1285,7 @@ function initializeAccordion() {
 // ==================== Toast Notification ====================
 function showToast(message, type = 'success') {
     const toast = document.getElementById('toast');
-    toast.textContent = message;
+    window.i18n.text(toast, message);
     toast.classList.add('show');
 
     setTimeout(() => {

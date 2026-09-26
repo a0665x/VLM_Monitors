@@ -4,6 +4,10 @@
 
 Use this as the quick reference for running, stopping, debugging, and validating VLM_Monitors.
 
+## Native x86 service
+
+See [SERVICE.md](./SERVICE.md) for `./run.sh local-up`, isolated vLLM, and the private Tailscale Serve path. The Docker commands below remain the Jetson deployment path.
+
 ## Primary Commands
 
 Start and run layered checks:

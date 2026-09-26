@@ -1,6 +1,18 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Interactive entry point; explicit commands remain suitable for automation.
+if [[ $# -eq 0 && -t 0 ]]; then
+  exec bash "$(dirname "$0")/scripts/setup-menu.sh"
+fi
+if [[ "${1:-}" == setup ]]; then
+  shift
+  exec bash "$(dirname "$0")/scripts/bootstrap-local.sh" "$@"
+fi
+if [[ "${1:-}" == menu ]]; then
+  exec bash "$(dirname "$0")/scripts/setup-menu.sh"
+fi
+
 MODE="${1:-help}"
 shift || true
 
@@ -822,6 +834,8 @@ show_logs() {
 usage() {
   cat <<EOF
 Usage:
+  ./run.sh                         # Interactive architecture/install/service menu
+  ./run.sh setup --arch x86_64|aarch64 [--dry-run] [--vllm]
   ./run.sh up [--follow] [--ngrok|--tailscale|--no-tunnel] [--no-build]
   ./run.sh restart [--follow] [--ngrok|--tailscale|--no-tunnel] [--no-build]
   ./run.sh down_up [--follow] [--ngrok|--tailscale|--no-tunnel] [--no-build]
@@ -830,6 +844,9 @@ Usage:
   ./run.sh logs
   ./run.sh down
   ./run.sh destroy
+  ./run.sh local-up|local-restart|local-down|local-status|local-logs|local-tailnet
+  ./run.sh vllm-up|vllm-down|vllm-status|vllm-logs
+  ./run.sh decision-up|decision-down|decision-status|decision-logs
 
 Notes:
   up       checks Docker, NVIDIA runtime, /dev/video0, /dev/snd, Ollama, then lets the operator choose ngrok or Tailscale HTTPS.
@@ -840,6 +857,9 @@ EOF
 }
 
 case "$MODE" in
+  local-up|local-restart|local-down|local-status|local-logs|local-tailnet|vllm-up|vllm-down|vllm-status|vllm-logs|decision-up|decision-down|decision-status|decision-logs)
+    exec bash "$SCRIPT_DIR/scripts/local-service.sh" "$MODE"
+    ;;
   up)
     bring_up
     ;;

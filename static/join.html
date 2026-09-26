@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>VLM Monitor · Cameras</title><link rel="stylesheet" href="/static/css/client.css"><script src="/static/js/locales.js"></script><script src="/static/js/i18n.js"></script><link rel="stylesheet" href="/static/css/decisions.css"></head>
+<body>
+<header><a class="brand" href="/join"><b>V</b> 相機</a><button id="invite-open" class="quiet">加入其他手機</button><button id="help-toggle" class="quiet" aria-expanded="false" aria-controls="connection-guide">連線引導</button><select data-language-select aria-label="Language"><option value="en">English</option><option value="zh-TW">繁體中文</option><option value="ja">日本語</option><option value="ko">한국어</option></select></header>
+<main>
+<section class="welcome"><h1>查看相機，或分享你的畫面</h1><p>主機相機與其他手機分享的影像，都在這裡。</p><div id="connection-status" role="status" class="connection">正在連接主機…</div></section>
+<section id="connection-guide" class="panel guide" hidden>
+<h2>三步完成連線</h2><ol><li><strong>開啟 Tailscale</strong><p>手機安裝 Tailscale，登入與主機相同的 Tailnet，開啟 VPN 連線。</p></li><li><strong>確認裝置在線</strong><p>可請管理員到 <a href="https://console.tailscale.com/admin/machines" target="_blank" rel="noopener">Tailscale 裝置管理 ↗</a> 確認主機與手機在線及存取權限。此頁不會讀取你的管理帳號。</p></li><li><strong>回來觀看或分享</strong><p>連到本頁代表可存取主機；瀏覽器無法直接檢查手機是否開啟 Tailscale。影像若連不上，可先切換「相容模式」。</p></li></ol><button id="check-connection">重新檢查連線</button><p class="muted">若完全打不開掃碼網址，先開啟 Tailscale 再掃一次。WebRTC 需要 Tailnet 允許連到主機的 UDP／TCP 8189。</p></section>
+<div class="tabs" role="tablist" aria-label="此裝置用途"><button id="watch-tab" role="tab" aria-selected="true" aria-controls="watch-panel">查看所有相機</button><button id="publish-tab" role="tab" aria-selected="false" aria-controls="publish-panel">分享我的相機</button></div>
+<section id="watch-panel" role="tabpanel" aria-labelledby="watch-tab" class="panel">
+<h2>所有相機</h2><p class="muted">主機與手機分享的即時影像。點相機名稱可放大觀看。</p><div id="client-gallery" class="source-gallery"></div>
+<details id="focused-view"><summary>放大觀看與播放設定</summary>
+<div class="section-title"><div><p class="eyebrow">LIVE VIEW</p><h2 id="view-title">主機相機</h2></div><label class="compact">播放方式<select id="playback"><option value="webrtc">WebRTC 即時</option><option value="hls">HLS 相容模式</option></select></label></div>
+<div id="viewer" class="viewer"><p>正在尋找相機…</p></div><p id="view-hint" class="muted" role="status">正在讀取來源</p>
+</details>
+<details class="optional-ai"><summary>AI 分析（選用）</summary><div class="section-title"><h3>選擇要分析的相機</h3><span id="source-count" class="muted"></span></div><div id="client-sources" class="source-list" aria-label="可觀看相機"></div>
+<div class="ai-bar"><p id="ai-status">主機 AI 狀態讀取中…</p><button id="select-ai" class="quiet" disabled>交給主機 AI 監控</button></div><p class="muted">切換觀看不影響其他手機。AI 目前共用一個分析來源；交給主機後，請到主機工作台啟動分析。</p>
+<details><summary>查看主機分析結果</summary><p id="client-result">等待分析…</p></details></details>
+</section>
+<section id="publish-panel" role="tabpanel" aria-labelledby="publish-tab" class="panel" hidden>
+<h2>分享我的相機</h2><p>按「開始分享相機」並允許鏡頭。其他手機就能在「查看所有相機」看到這個畫面。</p><p id="sharing-banner" class="connection" hidden>相機正在分享；你可以切換到「查看所有相機」，分享會繼續。</p>
+<label>相機名稱<input id="client-camera-name" maxlength="80" placeholder="例如：客廳手機"></label>
+<div class="form-row"><label>鏡頭<select id="client-facing"><option value="environment">後置鏡頭</option><option value="user">前置鏡頭</option></select></label><label class="mic"><input type="checkbox" id="client-microphone">分享麥克風聲音</label></div>
+<video id="client-preview" autoplay muted playsinline hidden></video>
+<div class="actions"><button id="start-publishing">開始分享相機</button><button id="stop-publishing" class="danger" hidden>停止分享</button></div><p id="publish-message" role="status">只在你按下開始並允許相機後分享。</p>
+<p class="muted">分享時請保持瀏覽器在前景、螢幕開啟。手機鎖屏或切換 App 可能中斷串流。停止會關閉鏡頭與麥克風。</p>
+</section>
+<footer class="client-footer"><a href="/">主機管理與 AI 設定 ↗</a><p class="muted">查看與分享可以同時使用。分享中切換上方頁籤，不會停止相機。</p><span id="network-engine" hidden></span></footer>
+<dialog id="invite-dialog" aria-labelledby="invite-title"><div class="section-title"><h2 id="invite-title">讓另一支手機加入</h2><button id="invite-close" class="quiet">關閉</button></div><p>對方先開啟 Tailscale 並登入同一個網路，再掃碼。</p><div class="connect-code"><img data-connect-qr alt="加入相機查看與分享頁面的 QR code" hidden><p data-connect-placeholder>正在準備 QR code…</p></div><p data-connect-status role="status"></p><a data-connect-link hidden target="_blank" rel="noopener">開啟手機頁面 ↗</a><button data-connect-refresh class="quiet">重新檢查</button></dialog>
+</main><script src="/static/vendor/mediamtx-publisher.js"></script><script src="/static/vendor/hls.min.js"></script><script src="/static/js/client.js"></script><script src="/static/js/connect.js"></script>
+<script src="/static/js/decisions.js"></script></body></html>

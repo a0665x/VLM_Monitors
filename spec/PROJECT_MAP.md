@@ -12,6 +12,9 @@ The current runtime is a Flask + Socket.IO backend served by `src/server.py` on 
 
 ## Read First
 
+- [Local validation](./LOCAL_VALIDATION.md): tested host, installation versions, camera checks and initial latency results.
+- [Service and iOS direction](./SERVICE.md): native x86 service, Ollama/vLLM backends, private Tailscale and client API contract.
+
 - [Architecture](./ARCHITECTURE.md): system boundaries, runtime entrypoints, and video/inference flow.
 - [Modules](./MODULES.md): source tree ownership map and important files.
 - [Runtime](./RUNTIME.md): Docker commands, ports, local dependencies, logs, tunnel behavior, and configuration.
@@ -77,3 +80,7 @@ Use the spec in this order:
 - `src/app.py` and `src/modes/*` remain Streamlit-oriented and may not represent the current primary runtime.
 - Automated test coverage is still narrow; camera, HLS, Docker, and GPU behavior require manual/hardware verification.
 - Long-running remote access through `ngrok` can hit plan/request limits; `Tailscale` is now a supported path in `run.sh`.
+
+- [WEBUI_EXPERIENCE.md](WEBUI_EXPERIENCE.md): 跨架構安裝選單、情境卡片、即時引擎設定與 Tailscale QR。
+
+新版手機掃碼與相機網路參見 [CLIENT_NETWORK.md](CLIENT_NETWORK.md)。QR 現在指向 `/join`，本機 Tailscale Serve 已由使用者啟用。

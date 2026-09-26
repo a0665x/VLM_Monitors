@@ -44,6 +44,11 @@ class OllamaClient:
         self.model = model
         self.timeout = timeout
 
+    @staticmethod
+    def _generation_options():
+        return {"temperature": float(os.getenv("VLM_TEMPERATURE", "0")),
+                "num_predict": int(os.getenv("VLM_MAX_TOKENS", "128"))}
+
     async def ensure_model(self) -> None:
         """Verify the configured model exists on the local Ollama instance."""
         if httpx is None:  # pragma: no cover - dependency missing during certain tests
@@ -78,6 +83,7 @@ class OllamaClient:
             "model": model or self.model,
             "prompt": full_prompt,
             "stream": False,
+            "options": self._generation_options(),
         }
 
         if image_bytes:
@@ -138,6 +144,7 @@ class OllamaClient:
             "model": model or self.model,
             "prompt": full_prompt,
             "stream": True,
+            "options": self._generation_options(),
         }
 
         if image_bytes:

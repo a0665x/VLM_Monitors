@@ -195,8 +195,8 @@ def test_invalid_selected_source_falls_back_to_local():
     server.ensure_valid_selected_source()
 
     assert test_state.selected_source_id == test_state.local_source_id
-    assert test_state.selected_source_label == "AGX Local Camera"
-    assert test_state.risk_explanation == "Selected source switched to AGX Local Camera."
+    assert test_state.selected_source_label == "本機相機"
+    assert test_state.risk_explanation == "Selected source switched to 本機相機."
 
 
 def test_disconnect_remote_source_removes_tile_and_falls_back_to_local():
@@ -222,4 +222,4 @@ def test_disconnect_remote_source_removes_tile_and_falls_back_to_local():
     assert payload["disconnected_source_id"] == "phone-a"
     assert "phone-a" not in test_state.sources
     assert test_state.selected_source_id == test_state.local_source_id
-    assert test_state.selected_source_label == "AGX Local Camera"
+    assert test_state.selected_source_label == "本機相機"

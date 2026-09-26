@@ -9,7 +9,13 @@ The current API is implemented in `src/server.py` with Flask and Flask-SocketIO.
 ### UI
 
 - `GET /`: serves `static/index.html`.
-- `GET /proxy/hls/<path>`: proxies MediaMTX HLS assets through the UI origin for remote HTTPS clients.
+- `GET /proxy/hls/<path>`: proxies MediaMTX HLS assets through the UI origin for remote HTTPS clients. Preserves session/LL-HLS query parameters and Range / Content-Range headers for native playback.
+
+### Service Discovery
+
+- `GET /api/service`: API version, selected inference backend/model, REST paths and Socket.IO connection path.
+- `GET /api/sources` now includes a relative `hls_proxy_path` per source, suitable for native iOS AVPlayer against the same base URL.
+- `/api/status` and `/api/models/vision` include `inference_backend` / `backend` respectively. Backend is selected with `VLM_BACKEND` at process startup.
 
 ### Status And Metrics
 
@@ -131,3 +137,9 @@ Payload:
 - Analysis runs in background threads. Be careful with shared state and locking when adding fields.
 - `AnalysisThread` can analyze either the AGX local frame or a selected remote source frame tap.
 - Source selection resets visible risk state and can immediately retarget auto-analysis.
+
+### Experimental multi-scenario decisions
+
+`GET /api/settings/decisions` returns current `settings` and classifier `service` readiness. `POST` accepts `{"mode":"parallel_decision","scenarios":["person","baby","fire","smoke","pet"]}` or mode `direct`; at least one supported, unique scenario is required. Busy analysis returns 409; unavailable classifier returns 503 and preserves prior settings.
+
+Status includes `decision_result` with per-scenario `state` and present/absent/unknown `probabilities`, or null probabilities with `abstained:true` for missing visual evidence. Scores are uncalibrated. The experimental mode does not trigger notifications. The UI plots presence scores against scenario names.

@@ -1,0 +1,17 @@
+# Headless monitoring service; inference engines live in separate processes.
+flask==3.0.0
+flask-socketio==5.3.5
+flask-cors==4.0.0
+python-socketio==5.10.0
+gunicorn==23.0.0
+opencv-python-headless>=4.10,<5
+numpy>=1.26,<3
+httpx>=0.27,<1
+requests>=2.32,<3
+pydantic==2.7.0
+twilio>=8,<10
+psutil>=5.9,<8
+nvidia-ml-py
+imageio-ffmpeg==0.6.0
+
+qrcode==8.2

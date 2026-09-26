@@ -7,6 +7,10 @@ import asyncio
 import threading
 import uuid
 import re
+import json
+import httpx
+from pathlib import Path
+from types import SimpleNamespace
 from datetime import datetime, timezone
 from flask import Flask, jsonify, request, send_from_directory, Response
 from flask_socketio import SocketIO, emit
@@ -15,7 +19,8 @@ from flask_cors import CORS
 # Add parent directory to path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from adapters.ollama_client import OllamaClient
+from services.decisions import analyze_frame as analyze_decisions, decision_health, validate_settings as validate_decision_settings
+from adapters.inference_client import create_inference_client, backend_name
 from pipelines.camera import MockCamera, FrameCapture
 from pipelines.inference import InferenceEngine
 from services.prompts import PromptStore
@@ -47,7 +52,7 @@ inference_engine = None
 analysis_thread = None
 
 # Setup GStreamer Plugin Path for NVIDIA Acceleration
-if "GST_PLUGIN_PATH" not in os.environ:
+if "GST_PLUGIN_PATH" not in os.environ and os.path.isdir("/usr/lib/aarch64-linux-gnu/gstreamer-1.0/"):
     os.environ["GST_PLUGIN_PATH"] = "/usr/lib/aarch64-linux-gnu/gstreamer-1.0/"
 
 
@@ -149,6 +154,24 @@ class AnalysisThread(threading.Thread):
             self.immediate_requested = True
         self.wake_event.set()
 
+    def release_idle_models(self):
+        if self.state.auto_analyze or not self.analysis_lock.acquire(blocking=False):
+            return
+        try:
+            self._unload_models()
+        finally:
+            self.analysis_lock.release()
+
+    def _unload_models(self):
+        if self.state.inference_backend == 'ollama' and hasattr(self.engine.ollama_client, 'unload_model'):
+            self.engine.ollama_client.unload_model(self.state.scoring_model)
+        if self.state.decision_settings['mode'] == 'parallel_decision':
+            try:
+                from services.decisions import DECISION_URL
+                httpx.post(DECISION_URL + '/unload', timeout=2)
+            except httpx.HTTPError:
+                pass
+
     def stop(self):
         self.running = False
         self.stop_event.set()
@@ -162,6 +185,7 @@ class AnalysisThread(threading.Thread):
         try:
             analysis_epoch = self.state.analysis_epoch
             self.state.analysis_running = True
+            self.state.decision_result = None
             self.state.last_inference_error = ""
             self.state.last_inference_text = ""
             self.state.streaming_inference_text = ""
@@ -191,6 +215,11 @@ class AnalysisThread(threading.Thread):
                 preview_bytes=b"", 
                 prompt_version=1
             )
+            # Bound vision input cost independently from the playback resolution.
+            max_edge = int(os.getenv("VLM_FRAME_MAX_EDGE", "0"))
+            if max_edge > 0 and max(frame.shape[:2]) > max_edge:
+                scale = max_edge / max(frame.shape[:2])
+                frame = cv2.resize(frame, (max(1, round(frame.shape[1]*scale)), max(1, round(frame.shape[0]*scale))), interpolation=cv2.INTER_AREA)
             # Encode for engine compatibility
             success, buffer = cv2.imencode(".jpg", cv2.cvtColor(frame, cv2.COLOR_RGB2BGR))
             if not success:
@@ -202,9 +231,15 @@ class AnalysisThread(threading.Thread):
             fc.preview_bytes = buffer.tobytes()
             asyncio.run(self._run_inference(fc, analysis_epoch))
         finally:
-            self.state.analysis_running = False
-            self._emit_status_update()
-            self.analysis_lock.release()
+            try:
+                if not self.state.auto_analyze:
+                    self._unload_models()
+            except Exception:
+                logger.exception("Failed to release idle models")
+            finally:
+                self.state.analysis_running = False
+                self.analysis_lock.release()
+                self._emit_status_update()
             
     async def _run_inference(self, frame_cap, analysis_epoch):
         def on_stream_chunk(text: str, done: bool = False):
@@ -215,16 +250,28 @@ class AnalysisThread(threading.Thread):
             emit_inference_stream_update(self.state, text, done)
 
         try:
-            _, result, _ = await self.engine.process_next_frame(
-                scoring_model=self.state.scoring_model,
-                frame=frame_cap,
-                stream_handler=on_stream_chunk if self.state.show_inference_overlay else None,
-            )
+            decision = None
+            if self.state.decision_settings['mode'] == 'parallel_decision':
+                decision = await analyze_decisions(self.engine.ollama_client, self.state.scoring_model,
+                                                  frame_cap.preview_bytes, self.state.decision_settings['scenarios'])
+                decision.update(frame_id=frame_cap.id, timestamp=frame_cap.timestamp,
+                                source_id=self.state.selected_source_id, analysis_epoch=analysis_epoch)
+                # Experimental scores are observational; never drive legacy notifications.
+                result = SimpleNamespace(risk=False, confidence=0.0, explanation=decision['observations'],
+                                         model=decision['vision_model'] + ' → ' + decision['decision_model'],
+                                         latency_ms=decision['total_ms'])
+            else:
+                _, result, _ = await self.engine.process_next_frame(
+                    scoring_model=self.state.scoring_model,
+                    frame=frame_cap,
+                    stream_handler=on_stream_chunk if self.state.show_inference_overlay else None,
+                )
         except Exception as e:
             logger.error("Inference error: %s", e)
             if analysis_epoch != self.state.analysis_epoch:
                 logger.info("Discarding stale inference error from epoch %s", analysis_epoch)
                 return
+            self.state.auto_analyze = False
             self.state.last_inference_error = str(e)
             self.state.risk_binary = False
             self.state.risk_score = 0.0
@@ -239,6 +286,10 @@ class AnalysisThread(threading.Thread):
             logger.info("Discarding stale inference result from epoch %s", analysis_epoch)
             return
 
+        if decision is not None:
+            self.state.decision_result = decision
+            point = {key: decision[key] for key in ('frame_id', 'timestamp', 'source_id', 'analysis_epoch', 'results')}
+            self.state.decision_history = (self.state.decision_history + [point])[-120:]
         self.state.risk_binary = result.risk
         self.state.risk_score = result.confidence
         self.state.risk_explanation = result.explanation
@@ -309,11 +360,13 @@ def initialize_backend():
     except (subprocess.CalledProcessError, FileNotFoundError):
         # Not running, try to start
         mtx_path = "./temp/mediamtx"
-        mtx_config = "./mediamtx.yml"  # Use our custom config
+        mtx_config = os.getenv("MEDIAMTX_CONFIG", "./mediamtx.yml")  # Use our custom config
         if os.path.exists(mtx_path):
             logger.info("[BACKEND] Starting MediaMTX...")
             # Start MediaMTX with config file
-            subprocess.Popen([mtx_path, mtx_config], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            from services.client_network import prepare_media_config
+            mtx_config = prepare_media_config(mtx_config)
+            subprocess.Popen([mtx_path, mtx_config])
             time.sleep(2)  # Wait for MediaMTX to start
             logger.info("[BACKEND] MediaMTX started")
         else:
@@ -321,6 +374,17 @@ def initialize_backend():
     
     # Create AppState
     app_state = AppState()
+    try:
+        app_state.decision_settings = validate_decision_settings(json.loads(Path('temp/decision-settings.json').read_text()))
+    except (OSError, ValueError, TypeError):
+        pass
+    try:
+        saved = json.loads(Path("temp/engine-settings.json").read_text())
+        if saved.get("backend") in {"ollama", "vllm"} and saved.get("model"):
+            app_state.inference_backend = saved["backend"]
+            app_state.scoring_model = saved["model"]
+    except (OSError, ValueError):
+        pass
     
     # 2. Start Camera Thread (will connect to MediaMTX)
     logger.info("[BACKEND] Starting CameraThread...")
@@ -330,8 +394,8 @@ def initialize_backend():
     
     # Initialize Prompt Store and Inference Engine
     prompt_store = PromptStore()
-    ollama = OllamaClient()
-    inference_engine = InferenceEngine(MockCamera(), prompt_store, ollama)
+    client = create_inference_client(app_state.inference_backend, app_state.scoring_model)
+    inference_engine = InferenceEngine(MockCamera(), prompt_store, client)
     
     # Start Analysis Thread
     logger.info("[BACKEND] Starting AnalysisThread...")
@@ -357,6 +421,7 @@ def source_urls(source_id: str):
         "webrtc_url": f"http://localhost:8889/{path}",
         "publish_url": f"http://localhost:8889/{path}/publish",
         "hls_url": f"http://localhost:8888/{path}/index.m3u8",
+        "hls_proxy_path": f"/proxy/hls/{path}/index.m3u8",
     }
 
 
@@ -379,13 +444,13 @@ def _refresh_local_source_state():
         app_state.local_source_id,
         {
             "id": app_state.local_source_id,
-            "label": "AGX Local Camera",
+            "label": "本機相機",
             "kind": "local",
             "status": "online",
             "is_local": True,
         },
     )
-    source["label"] = "AGX Local Camera"
+    source["label"] = "本機相機"
     source["status"] = "online"
     source["kind"] = "local"
     source["is_local"] = True
@@ -507,6 +572,8 @@ def set_selected_source(source_id: str):
 def build_status_payload(state: AppState):
     """Build the REST/WebSocket status payload from shared state."""
     return {
+        'decision_settings': state.decision_settings,
+        'decision_result': state.decision_result,
         'risk': state.risk_binary or state.sound_risk,
         'source_id': state.selected_source_id,
         'source_label': state.selected_source_label,
@@ -520,6 +587,7 @@ def build_status_payload(state: AppState):
         'last_inference_at': state.last_inference_at,
         'last_inference_latency_ms': state.last_inference_latency_ms,
         'scoring_model': state.scoring_model,
+        'inference_backend': state.inference_backend,
         'last_inference_model': state.last_inference_model or state.scoring_model,
         'last_inference_error': state.last_inference_error,
         'last_inference_text': state.last_inference_text,
@@ -547,6 +615,8 @@ def build_status_payload(state: AppState):
 
 def reset_detection_state(reason: str = ""):
     """Clear visible risk state and invalidate in-flight inference results."""
+    app_state.decision_result = None
+    app_state.decision_history = []
     app_state.analysis_epoch += 1
     app_state.analysis_running = False
     app_state.risk_binary = False
@@ -618,6 +688,70 @@ def index():
     """Serve main HTML page."""
     return send_from_directory('../static', 'index.html')
 
+@app.route('/join')
+def client_join():
+    return send_from_directory('../static', 'join.html')
+
+
+@app.route('/api/network')
+def client_network():
+    from services.tailnet import get_share_status
+    from services.client_network import live_paths
+    share = get_share_status()
+    try:
+        paths = live_paths()
+        sources = []
+        for source in _sorted_sources():
+            path = source.get('path') or ('camera' if source['is_local'] else source['id'])
+            live = paths.get(path)
+            sources.append({**source, 'ready': bool(live), 'viewers': len(live.get('readers') or []) if live else 0})
+        media_ready = True
+    except Exception:
+        sources = [{**source, 'ready': None, 'viewers': None} for source in _sorted_sources()]
+        media_ready = False
+    return jsonify(service_connected=True, share_ready=share.get('ready', False),
+                   media_ready=media_ready, sources=sources,
+                   selected_source_id=app_state.selected_source_id,
+                   backend=app_state.inference_backend, model=app_state.scoring_model)
+
+
+@app.route('/proxy/webrtc/<path:resource>', methods=['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'])
+def proxy_webrtc(resource):
+    # Fixed loopback upstream; forward signaling/embedded player assets only.
+    import httpx
+    from services.client_network import rewrite_location
+    if not re.fullmatch(r'[a-zA-Z0-9_./-]+', resource) or '..' in resource:
+        return jsonify(error='Invalid WebRTC path'), 400
+    if request.content_length and request.content_length > 1024 * 1024:
+        return jsonify(error='Signaling request too large'), 413
+    headers = {name: request.headers[name] for name in ['Content-Type', 'If-Match'] if name in request.headers}
+    url = 'http://127.0.0.1:8889/' + resource
+    if request.query_string:
+        url += '?' + request.query_string.decode('ascii')
+    try:
+        upstream = httpx.request(request.method, url, content=request.get_data(), headers=headers,
+                                 timeout=10, follow_redirects=False)
+        output = {key: value for key, value in upstream.headers.items()
+                  if key.lower() in {'content-type', 'etag', 'accept-patch', 'link', 'allow'}}
+        if 'location' in upstream.headers:
+            output['Location'] = rewrite_location(upstream.headers['location'])
+        output['Cache-Control'] = 'no-store'
+        return Response(upstream.content, status=upstream.status_code, headers=output)
+    except (httpx.HTTPError, ValueError):
+        return jsonify(error='WebRTC service unavailable'), 502
+
+
+@app.route('/api/service')
+def get_service_info():
+    return jsonify({
+        "name": "VLM_Monitors", "api_version": 1,
+        "inference_backend": app_state.inference_backend, "model": app_state.scoring_model,
+        "status_path": "/api/status", "sources_path": "/api/sources",
+        "events": {"protocol": "socket.io", "path": "/socket.io"},
+        "playback": "Resolve each source hls_proxy_path against this service base URL",
+    })
+
+
 @app.route('/api/status')
 def get_status():
     """Get current risk detection status."""
@@ -637,7 +771,9 @@ def get_sources():
 def register_source():
     data = request.json or {}
     source_id = normalize_source_id(data.get("source_id", "browser-src"))
-    label = (data.get("label") or source_id).strip() or source_id
+    if source_id in {app_state.local_source_id, "camera"}:
+        return jsonify(error="Reserved source ID"), 400
+    label = (data.get("label") or source_id).strip()[:80] or source_id
     source = upsert_remote_source(source_id, label)
     emit_sources_update()
     return jsonify({"success": True, "source": serialize_source(source)})
@@ -741,8 +877,14 @@ def get_public_urls():
 def proxy_hls(resource: str):
     """Proxy MediaMTX HLS assets through the UI origin for remote HTTPS clients."""
     upstream = f"http://127.0.0.1:8888/{resource.lstrip('/')}"
+    if request.query_string:
+        upstream += "?" + request.query_string.decode("ascii")
+    upstream_headers = {}
+    if request.headers.get("Range"):
+        upstream_headers["Range"] = request.headers["Range"]
+    upstream_request = urllib_request.Request(upstream, headers=upstream_headers)
     try:
-        with urllib_request.urlopen(upstream, timeout=5) as resp:
+        with urllib_request.urlopen(upstream_request, timeout=5) as resp:
             content = resp.read()
             content_type = resp.headers.get("Content-Type", "application/octet-stream")
             return Response(
@@ -751,6 +893,7 @@ def proxy_hls(resource: str):
                 content_type=content_type,
                 headers={
                     "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+                    **{key: resp.headers[key] for key in ("Content-Range", "Accept-Ranges") if key in resp.headers},
                 },
             )
     except urllib_error.HTTPError as exc:
@@ -773,6 +916,8 @@ def get_metrics():
 def trigger_analysis():
     """Trigger a single analysis."""
     try:
+        if app_state.decision_settings['mode'] == 'parallel_decision' and not decision_health().get('ready'):
+            return jsonify(success=False, error='Classifier unavailable. Start it or switch to Single scenario.'), 503
         started = analysis_thread.trigger()
         if not started:
             return jsonify({'success': False, 'busy': True, 'message': 'Analysis is already running'}), 409
@@ -786,6 +931,8 @@ def toggle_auto_analysis():
     """Enable/disable auto analysis."""
     data = request.json
     enabled = bool(data.get('enabled', data.get('auto_analyze', False)))
+    if enabled and app_state.decision_settings['mode'] == 'parallel_decision' and not decision_health().get('ready'):
+        return jsonify(success=False, error='Classifier unavailable. Start it or switch to Single scenario.'), 503
     if analysis_thread:
         analysis_thread.set_auto_analyze(enabled)
     else:
@@ -794,6 +941,8 @@ def toggle_auto_analysis():
     # Reset risk if disabling
     if not enabled:
         reset_detection_state("Auto analysis disabled.")
+        if analysis_thread and hasattr(analysis_thread, "release_idle_models"):
+            analysis_thread.release_idle_models()
         socketio.emit('status_update', build_status_payload(app_state))
     elif analysis_thread:
         analysis_thread.notify_config_changed(immediate=True)
@@ -812,7 +961,7 @@ def update_analysis_config():
         old_model = app_state.scoring_model
         if old_model and old_model != data['model']:
             try:
-                OllamaClient.unload_model(old_model)
+                create_inference_client(app_state.inference_backend, app_state.scoring_model).unload_model(old_model)
             except Exception as e:
                 logger.error(f"Failed to unload model: {e}")
         app_state.scoring_model = data['model']
@@ -1063,18 +1212,108 @@ def get_prompt_history():
     history = prompt_store.get_history_texts()
     return jsonify({'history': history})
 
+@app.route('/api/settings/decisions', methods=['GET', 'POST'])
+def decision_settings():
+    if request.method == 'GET':
+        return jsonify(settings=app_state.decision_settings, service=decision_health())
+    try:
+        settings = validate_decision_settings(request.get_json(silent=True))
+    except ValueError as exc:
+        return jsonify(error=str(exc)), 400
+    if not analysis_thread or not analysis_thread.analysis_lock.acquire(blocking=False):
+        return jsonify(error='Analysis is busy. Wait before switching.'), 409
+    try:
+        if settings['mode'] == 'parallel_decision' and not decision_health().get('ready'):
+            return jsonify(error='Start the decision service: ./run.sh decision-up'), 503
+        target = Path('temp/decision-settings.json')
+        target.parent.mkdir(exist_ok=True)
+        staging = target.with_suffix('.tmp')
+        staging.write_text(json.dumps(settings))
+        staging.replace(target)
+        app_state.decision_settings = settings
+        reset_detection_state('Analysis mode updated.')
+        socketio.emit('status_update', build_status_payload(app_state))
+        return jsonify(success=True, settings=settings)
+    except OSError:
+        logger.exception('Could not save decision settings')
+        return jsonify(error='Could not save settings; previous mode retained.'), 503
+    finally:
+        analysis_thread.analysis_lock.release()
+
+
+@app.route('/api/settings/engine', methods=['GET', 'POST'])
+def engine_settings():
+    if request.method == 'GET':
+        backend = request.args.get('backend', app_state.inference_backend)
+        if backend not in {'ollama', 'vllm'}:
+            return jsonify(error='Unknown engine'), 400
+        try:
+            models = create_inference_client(backend).get_models(capability='vision')
+            return jsonify(backend=backend, models=models, available=bool(models),
+                           current_backend=app_state.inference_backend, current_model=app_state.scoring_model)
+        except Exception:
+            return jsonify(backend=backend, models=[], available=False,
+                           current_backend=app_state.inference_backend, current_model=app_state.scoring_model)
+    data = request.get_json(silent=True) or {}
+    backend, model = data.get('backend'), data.get('model')
+    if backend not in {'ollama', 'vllm'} or not isinstance(model, str) or not model.strip():
+        return jsonify(error='請選擇引擎與模型'), 400
+    if not analysis_thread or not analysis_thread.analysis_lock.acquire(blocking=False):
+        return jsonify(error='推論執行中，請暫停監控並等待完成後切換'), 409
+    try:
+        client = create_inference_client(backend, model)
+        if model not in client.get_models(capability='vision'):
+            return jsonify(error='引擎未就緒或找不到所選模型；原設定已保留'), 503
+        target = Path('temp/engine-settings.json')
+        target.parent.mkdir(exist_ok=True)
+        staging = target.with_suffix('.tmp')
+        staging.write_text(json.dumps(dict(backend=backend, model=model)))
+        staging.replace(target)
+        inference_engine.ollama_client = client
+        app_state.inference_backend = backend
+        app_state.scoring_model = model
+        reset_detection_state('推論引擎已更新，等待下次分析。')
+        socketio.emit('status_update', build_status_payload(app_state))
+        return jsonify(success=True, backend=backend, model=model)
+    except Exception:
+        logger.exception('Engine settings failed')
+        return jsonify(error='無法連線或儲存設定；請確認引擎服務'), 503
+    finally:
+        analysis_thread.analysis_lock.release()
+
+
+@app.route('/api/share')
+def share_status():
+    from services.tailnet import get_share_status
+    return jsonify(get_share_status())
+
+
+@app.route('/api/share/qr.svg')
+def share_qr():
+    from services.tailnet import get_share_status
+    import qrcode
+    import qrcode.image.svg
+    import io
+    status = get_share_status()
+    if not status.get('url'):
+        return jsonify(error='Tailscale Serve 尚未啟用'), 409
+    output = io.BytesIO()
+    qrcode.make(status['url'], image_factory=qrcode.image.svg.SvgPathImage).save(output)
+    return Response(output.getvalue(), mimetype='image/svg+xml', headers={'Cache-Control': 'no-store'})
+
+
 @app.route('/api/models/vision')
 def get_vision_models():
     """Get available vision models."""
     try:
-        models = OllamaClient.get_models(capability="vision")
+        models = create_inference_client(app_state.inference_backend, app_state.scoring_model).get_models(capability="vision")
         if not models:
-            models = ["qwen3-vl:8b", "llama3.2-vision:11b", "minicpm-v:8b"]
+            models = [app_state.scoring_model]
         current = app_state.scoring_model
-        return jsonify({'models': models, 'current': current})
+        return jsonify({'models': models, 'current': current, 'backend': app_state.inference_backend})
     except Exception as e:
         logger.error(f"Models error: {e}")
-        return jsonify({'models': ["qwen3-vl:8b"], 'current': 'qwen3-vl:8b'})
+        return jsonify({'models': [], 'current': app_state.scoring_model, 'backend': app_state.inference_backend, 'error': str(e)}), 503
 
 
 # ==================== WEBSOCKET EVENTS ====================

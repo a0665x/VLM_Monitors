@@ -1,6 +1,7 @@
 __pycache__/
 *.pyc
 .venv/
+.venv-vllm/
 temp/
 logs/
 .env
@@ -15,3 +16,12 @@ data/ngrok_webrtc_url.txt
 data/ngrok.yml
 .agents/
 data/public_url_provider.txt
+
+.env.vllm
+
+# MediaMTX generated TLS material
+auto.crt
+auto.key
+
+.venv-decision/
+.pytest_cache/

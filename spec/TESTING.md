@@ -4,6 +4,10 @@
 
 The current automated tests are narrow and mainly cover notifier behavior. Camera, HLS, Docker, MediaMTX, and Jetson GPU behavior still need manual verification on the target machine.
 
+## Native service validation
+
+See [LOCAL_VALIDATION.md](./LOCAL_VALIDATION.md) for the x86 camera / Ollama / vLLM / HLS checks. Install `requirements-dev.txt` into `.venv` to run the headless tests. `tests/unit/test_inference_backends.py` covers image requests, SSE streaming, backend selection, relative playback URLs, camera selection, and HLS session/range forwarding.
+
 ## Automated Tests
 
 Run from the project root:

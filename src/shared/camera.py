@@ -9,21 +9,24 @@ import re
 import os
 import queue
 import signal
+import shutil
+import shlex
 from shared.state import AppState
 
 logger = logging.getLogger(__name__)
 
 class CameraThread(threading.Thread):
-    def __init__(self, state: AppState, device="/dev/video0", audio_device="default", rtsp_url="rtsp://localhost:8554/camera"):
+    def __init__(self, state: AppState, device=None, audio_device="default", rtsp_url="rtsp://127.0.0.1:8554/camera"):
         super().__init__(daemon=True)
         self.state = state
-        self.device = device
+        self.device = device if device is not None else os.getenv("VIDEO_DEVICE", "/dev/video0")
         self.audio_device = audio_device
-        self.rtsp_url = rtsp_url
+        self.rtsp_url = os.getenv("RTSP_URL", rtsp_url)
         self.running = True
-        self.width = 640
-        self.height = 480
-        self.fps = 30
+        self.width = int(os.getenv("CAMERA_WIDTH", "640"))
+        self.height = int(os.getenv("CAMERA_HEIGHT", "480"))
+        self.fps = int(os.getenv("CAMERA_FPS", "30"))
+        self.encoder = os.getenv("VIDEO_ENCODER", "jetson")
         self._threads = []
         self._processes = []
         self._stop_lock = threading.Lock()
@@ -38,7 +41,8 @@ class CameraThread(threading.Thread):
     def run(self):
         self.stream_queue = queue.Queue(maxsize=1)
         self.raw_queue = queue.Queue(maxsize=2) # Intermediate buffer for raw bytes
-        self._select_capture_mode()
+        if not (os.getenv("CAMERA_WIDTH") and os.getenv("CAMERA_HEIGHT")):
+            self._select_capture_mode()
         
         logger.info(
             "Starting CameraThread (GStreamer Pipe Mode): %s %sx%s@%sfps -> %s",
@@ -203,61 +207,64 @@ class CameraThread(threading.Thread):
                 return None
 
         try:
-             logger.info("=== Configuring Camera Controls ===")
-             
-             # 1. Disable Auto-Focus (prevents refocusing delays)
-             set_v4l2('focus_auto', 0)
-             set_v4l2('focus_absolute', 0)
-             
-             # 2. Disable Auto White Balance
-             set_v4l2('white_balance_temperature_auto', 0)
-             set_v4l2('white_balance_automatic', 0)
-             
-             # 3. Disable Auto Exposure - TRY ALL VARIANTS
-             # Different cameras use different control names
-             set_v4l2('exposure_auto', 1)  # 1=Manual for UVC (3=Auto)
-             set_v4l2('auto_exposure', 1)  # Alternative name
-             set_v4l2('exposure_auto_priority', 0)  # Disable priority (prevents auto-adjust)
-             
-             # 3.5. CRITICAL: Disable Dynamic Framerate
-             # This was the missing piece! Without this, camera adjusts FPS based on exposure
-             set_v4l2('exposure_dynamic_framerate', 0)
-             
-             # 4. Set Absolute Exposure Time
-             # Target: 33ms = 30fps
-             # Most UVC cameras use 100μs units, so 33ms = 330 units
-             # Try both common control names
-             exposure_set = False
-             for exp_val in [330, 333, 33]:  # Try multiple values
-                 if set_v4l2('exposure_absolute', exp_val):
-                     exposure_set = True
-                     break
-                 if set_v4l2('exposure_time_absolute', exp_val):
-                     exposure_set = True
-                     break
-             
-             if not exposure_set:
-                 logger.warning("⚠ Could not set exposure time - FPS may be unstable")
-             
-             # 5. Set Fixed Gain (prevent auto-gain causing brightness fluctuations)
-             set_v4l2('gain', 100)
-             set_v4l2('gain_automatic', 0)
-             
-             # 6. Verify Critical Settings
-             logger.info("=== Verifying Settings ===")
-             exp_auto = get_v4l2('exposure_auto') or get_v4l2('auto_exposure')
-             exp_time = get_v4l2('exposure_absolute') or get_v4l2('exposure_time_absolute')
-             dynamic_fps = get_v4l2('exposure_dynamic_framerate')
-             
-             if exp_auto:
-                 logger.info(f"exposure_auto: {exp_auto} (should be 1=Manual)")
-             if exp_time:
-                 logger.info(f"exposure_time: {exp_time} (target: 330-333)")
-             if dynamic_fps is not None:
-                 logger.info(f"dynamic_framerate: {dynamic_fps} (should be 0=Disabled)")
-             
-             logger.info("=== Camera Configuration Complete ===")
-             
+             if os.getenv("CAMERA_EXPOSURE_MODE", "manual") == "auto":
+                 configured = set_v4l2('auto_exposure', 3) or set_v4l2('exposure_auto', 3)
+                 logger.info("Automatic exposure configured: %s", configured)
+             else:
+                 logger.info("=== Configuring Camera Controls ===")
+
+                 # 1. Disable Auto-Focus (prevents refocusing delays)
+                 set_v4l2('focus_auto', 0)
+                 set_v4l2('focus_absolute', 0)
+
+                 # 2. Disable Auto White Balance
+                 set_v4l2('white_balance_temperature_auto', 0)
+                 set_v4l2('white_balance_automatic', 0)
+
+                 # 3. Disable Auto Exposure - TRY ALL VARIANTS
+                 # Different cameras use different control names
+                 set_v4l2('exposure_auto', 1)  # 1=Manual for UVC (3=Auto)
+                 set_v4l2('auto_exposure', 1)  # Alternative name
+                 set_v4l2('exposure_auto_priority', 0)  # Disable priority (prevents auto-adjust)
+
+                 # 3.5. CRITICAL: Disable Dynamic Framerate
+                 # This was the missing piece! Without this, camera adjusts FPS based on exposure
+                 set_v4l2('exposure_dynamic_framerate', 0)
+
+                 # 4. Set Absolute Exposure Time
+                 # Target: 33ms = 30fps
+                 # Most UVC cameras use 100μs units, so 33ms = 330 units
+                 # Try both common control names
+                 exposure_set = False
+                 for exp_val in [330, 333, 33]:  # Try multiple values
+                     if set_v4l2('exposure_absolute', exp_val):
+                         exposure_set = True
+                         break
+                     if set_v4l2('exposure_time_absolute', exp_val):
+                         exposure_set = True
+                         break
+
+                 if not exposure_set:
+                     logger.warning("⚠ Could not set exposure time - FPS may be unstable")
+
+                 # 5. Set Fixed Gain (prevent auto-gain causing brightness fluctuations)
+                 set_v4l2('gain', 100)
+                 set_v4l2('gain_automatic', 0)
+
+                 # 6. Verify Critical Settings
+                 logger.info("=== Verifying Settings ===")
+                 exp_auto = get_v4l2('exposure_auto') or get_v4l2('auto_exposure')
+                 exp_time = get_v4l2('exposure_absolute') or get_v4l2('exposure_time_absolute')
+                 dynamic_fps = get_v4l2('exposure_dynamic_framerate')
+
+                 if exp_auto:
+                     logger.info(f"exposure_auto: {exp_auto} (should be 1=Manual)")
+                 if exp_time:
+                     logger.info(f"exposure_time: {exp_time} (target: 330-333)")
+                 if dynamic_fps is not None:
+                     logger.info(f"dynamic_framerate: {dynamic_fps} (should be 0=Disabled)")
+
+                 logger.info("=== Camera Configuration Complete ===")
         except FileNotFoundError:
              logger.error("v4l2-ctl not found! Install v4l-utils.")
         except Exception as e:
@@ -395,6 +402,20 @@ class CameraThread(threading.Thread):
         )
         
         full_cmd = f"{gst_section} | {ffmpeg_section}"
+        if self.encoder == "software":
+            ffmpeg = os.getenv("FFMPEG_BIN") or shutil.which("ffmpeg")
+            if not ffmpeg:
+                import imageio_ffmpeg
+                ffmpeg = imageio_ffmpeg.get_ffmpeg_exe()
+            args = [ffmpeg, "-hide_banner", "-loglevel", "warning", "-f", "rawvideo",
+                    "-pixel_format", "bgr24", "-video_size", f"{self.width}x{self.height}",
+                    "-framerate", str(self.fps), "-i", "pipe:0", "-an", "-c:v", "libx264",
+                    "-preset", "ultrafast", "-tune", "zerolatency", "-pix_fmt", "yuv420p",
+                    "-g", str(self.fps), "-bf", "0", "-b:v", "2M",
+                    "-f", "rtsp", "-rtsp_transport", "tcp", rtsp_url]
+            full_cmd = shlex.join(args)
+        elif self.encoder != "jetson":
+            raise ValueError(f"Unsupported VIDEO_ENCODER: {self.encoder}")
         
         logger.info(f"Hybrid Command: {full_cmd}")
         
