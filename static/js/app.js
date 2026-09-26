@@ -132,11 +132,7 @@ function updateStreamUrls() {
 }
 
 function getWebRtcBaseUrl() {
-    const host = window.location.hostname || 'localhost';
-    if (window.location.protocol === 'https:' && state.publicUrls.webrtc) {
-        return state.publicUrls.webrtc.replace(/\/$/, '');
-    }
-    return `http://${host}:8889`;
+    return window.location.origin + '/proxy/webrtc';
 }
 
 function getSourceWebRtcUrl(source) {

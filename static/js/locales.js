@@ -1334,10 +1334,10 @@ window.UI_TRANSLATIONS = [
   "단일 상황 · 시각 분석"
  ],
  [
-  "Multi-scenario · Parallel classifier (experimental)",
-  "多情境 · 平行分類（實驗）",
-  "複数シナリオ · 並列分類（実験）",
-  "다중 상황 · 병렬 분류 (실험)"
+  "Multi-scenario · Parallel classifier",
+  "多情境 · 平行分類",
+  "複数シナリオ · 並列分類",
+  "다중 상황 · 병렬 분류"
  ],
  [
   "Vision observations → Qwen 1.5B → scenario scores.",
@@ -1346,10 +1346,10 @@ window.UI_TRANSLATIONS = [
   "영상 관찰 → Qwen 1.5B → 상황별 점수."
  ],
  [
-  "Experimental · uncalibrated candidate scores · notifications off",
-  "實驗模式 · 候選分數未校準 · 不觸發通知",
-  "実験モード · 未校正スコア · 通知なし",
-  "실험 모드 · 보정되지 않은 점수 · 알림 없음"
+  "Multi-scenario classification",
+  "多情境分類",
+  "複数シナリオの分類",
+  "다중 상황 분류"
  ],
  [
   "Apply analysis mode",
@@ -1500,4 +1500,37 @@ window.UI_TRANSLATIONS = [
 ["Multiple scenarios · select one or more", "多情境 · 可複選", "複数シナリオ · 複数選択可", "여러 상황 · 복수 선택 가능"],
 ["Single scenario · select one card", "單情境 · 選一張卡片", "単一シナリオ · 1 枚選択", "단일 상황 · 카드 하나 선택"],
 ["Classifier unavailable. Start it or switch to Single scenario.", "分類服務未啟動，請啟動服務或切回單情境。", "分類サービスを起動するか、単一シナリオに切り替えてください。", "분류 서비스를 시작하거나 단일 상황으로 전환하세요."]
+,
+["Updating scores…", "正在更新分數…", "スコアを更新中…", "점수 업데이트 중…"],
+["Candidate scores", "候選分數", "候補スコア", "후보 점수"]
+,
+["Saved moments", "已儲存片段", "保存したシーン", "저장된 장면"],
+["Keep scene changes. Replay the moments that matter.", "保留場景變化，回看重要時刻。", "シーンの変化を保存し、大切な瞬間を再生。", "장면 변화를 저장하고 중요한 순간을 다시 보세요."],
+["My timelapse", "我的縮時影片", "マイタイムラプス", "내 타임랩스"],
+["Free · 1 camera", "免費 · 1 個相機", "無料 · カメラ 1 台", "무료 · 카메라 1대"],
+["Save timelapse", "儲存縮時", "タイムラプスを保存", "타임랩스 저장"],
+["Changed scenes are saved more often. Similar scenes are condensed. AI events keep nearby frames.", "變化畫面優先保留，相似畫面精簡儲存，AI 事件加存前後畫面。", "変化した場面を優先して保存。類似場面を圧縮し、AI イベントの前後を保存。", "변화한 장면을 우선 저장하고 유사 장면은 줄이며 AI 이벤트 전후를 보존합니다."],
+["Download a day", "下載每日縮時", "日別ダウンロード", "일별 다운로드"],
+["The timestamp shows the original capture time in UTC.", "時間戳顯示原始拍攝時間（UTC）。", "タイムスタンプは元の撮影時刻（UTC）です。", "타임스탬프는 원래 촬영 시간(UTC)입니다."],
+["Day (UTC)", "日期（UTC）", "日付（UTC）", "날짜(UTC)"],
+["Create MP4", "製作 MP4", "MP4 を作成", "MP4 만들기"],
+["Download MP4", "下載 MP4", "MP4 をダウンロード", "MP4 다운로드"],
+["Frame timestamps (JSON)", "逐格時間紀錄（JSON）", "フレーム時刻（JSON）", "프레임 시간(JSON)"],
+["Event timeline", "事件時間軸", "イベント履歴", "이벤트 타임라인"],
+["Events come from AI analysis of the selected camera.", "事件來自所選相機的 AI 分析。", "選択したカメラの AI 分析によるイベントです。", "선택한 카메라의 AI 분석 이벤트입니다."],
+["Back to monitor", "回到監控", "モニターに戻る", "모니터로 돌아가기"],
+["Retention", "保留期限", "保存期間", "보존 기간"],
+["days", "天", "日", "일"],
+["Host storage", "主機儲存", "ホスト保存", "호스트 저장"],
+["saved frames", "已存畫面", "保存フレーム", "저장된 프레임"],
+["Creating video…", "正在製作影片…", "動画を作成中…", "동영상 만드는 중…"],
+["Video ready", "影片已完成", "動画の準備完了", "동영상 준비 완료"],
+["Video export failed", "影片匯出失敗", "動画の書き出し失敗", "동영상 내보내기 실패"],
+["No saved events yet.", "尚無儲存事件。", "保存イベントはありません。", "저장된 이벤트가 없습니다."],
+["Event snapshot", "事件快照", "イベント画像", "이벤트 이미지"],
+["Sign out", "登出", "ログアウト", "로그아웃"]
 ];
+
+window.UI_TRANSLATIONS.push(["Host disk space is low. Recording paused.","主機空間不足，錄影已暫停。","空き容量不足のため録画を一時停止しました。","저장 공간이 부족하여 녹화가 일시 중지되었습니다."],["Storage quota reached. Recording paused.","已達儲存上限，錄影已暫停。","保存上限に達したため録画を一時停止しました。","저장 한도에 도달하여 녹화가 일시 중지되었습니다."]);
+
+window.UI_TRANSLATIONS.push(...[["Sign in", "登入", "ログイン", "로그인"], ["Your cameras and saved moments.", "查看相機與保留片段。", "カメラと保存したシーン。", "카메라와 저장된 순간을 확인하세요."], ["Continue with Google", "使用 Google 登入", "Google で続行", "Google로 계속"], ["Setup code", "初始化代碼", "セットアップコード", "설정 코드"], ["Email", "電子郵件", "メールアドレス", "이메일"], ["Password", "密碼", "パスワード", "비밀번호"], ["Set up your host", "設定主機", "ホストの設定", "호스트 설정"], ["Create administrator", "建立管理員", "管理者を作成", "관리자 만들기"], ["Run ./run.sh account-setup on the host to get the setup code. Create your administrator account below.", "在主機執行 ./run.sh account-setup 取得代碼，並在下方建立管理員帳號。", "ホストで ./run.sh account-setup を実行してコードを取得し、管理者を作成してください。", "호스트에서 ./run.sh account-setup 을 실행하여 코드를 받은 후 관리자 계정을 만드세요."], ["Link Google account", "連結 Google 帳號", "Google アカウントを連携", "Google 계정 연결"]]);

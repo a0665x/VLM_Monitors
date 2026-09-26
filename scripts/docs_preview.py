@@ -30,6 +30,9 @@ def page():
     html=html.replace('</body>','<script src="/docs/demo/preview.js"></script></body>')
     return html
 
+@app.route('/auth/status')
+def demo_account():return jsonify(user=dict(name='Demo host',role='admin'),csrf='preview',google_enabled=False,setup_required=False)
+
 @app.route('/docs/<path:name>')
 def assets(name):return send_from_directory(ROOT/'docs',name)
 

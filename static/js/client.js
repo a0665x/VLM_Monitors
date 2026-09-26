@@ -144,7 +144,7 @@ el('start-publishing').addEventListener('click',async()=>{
     }catch(error){if(current!==generation)return;await stopPublishing();i18n.text(el('publish-message'),error.name==='NotAllowedError'?'相機權限未允許。請在瀏覽器設定允許相機，再按開始。':error.message);}
 });
 el('stop-publishing').addEventListener('click',stopPublishing);
-window.addEventListener('pagehide',()=>{generation++;publishing=false;el('sharing-banner').hidden=true;clearInterval(heartbeat);publisher?.close();localStream?.getTracks().forEach(t=>t.stop());navigator.sendBeacon('/api/sources/disconnect',new Blob([JSON.stringify({source_id:deviceId})],{type:'application/json'}));});
+window.addEventListener('pagehide',()=>{generation++;publishing=false;el('sharing-banner').hidden=true;clearInterval(heartbeat);publisher?.close();localStream?.getTracks().forEach(t=>t.stop());fetch('/api/sources/disconnect',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({source_id:deviceId}),keepalive:true}).catch(()=>{});});
 document.addEventListener('visibilitychange',()=>{if(publishing && !document.hidden)keepAwake();if(publishing && document.hidden)i18n.text(el('publish-message'),'頁面已移到背景，手機可能暫停相機。回到前景後請確認其他装置仍可觀看。');});
 if(new URLSearchParams(location.search).get('mode')==='publish')changeTab('publish');
 refresh();setInterval(refresh,4000);

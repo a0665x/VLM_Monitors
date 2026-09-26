@@ -4,7 +4,7 @@
   const outcomes = ['present','absent','unknown'];
   const outcomeLabels = {present:'Present',absent:'Absent',unknown:'Unknown'};
   const colors = ['#76e5c3','#79aefc','#f3c76b'];
-  let status, settings, pending=false, renderKey='', panel;
+  let status, settings, pending=false, renderKey='', panel, structureKey='', view, animation=0, displayed={};
   const t = key => window.i18n.t(key);
   const node = (tag, text, cls) => {const e=document.createElement(tag);if(text!==undefined)e.textContent=text;if(cls)e.className=cls;return e;};
   async function requestSettings(next) {
@@ -41,8 +41,8 @@
   }
   function chart(canvas, results, selected) {
     const width=Math.max(300,Math.min(900,panel.clientWidth||window.innerWidth-80)),height=245,left=36,right=12,top=28,bottom=190;
-    canvas.width=width*2;canvas.height=height*2;
-    const c=canvas.getContext('2d');c.scale(2,2);
+    if(canvas.width!==width*2||canvas.height!==height*2){canvas.width=width*2;canvas.height=height*2;}
+    const c=canvas.getContext('2d');c.setTransform(2,0,0,2,0,0);c.clearRect(0,0,width,height);c.textAlign='left';
     c.font='11px system-ui';c.fillStyle='#a5bbc4';c.strokeStyle='#30434d';c.lineWidth=1;
     c.fillText(t('Score (%)'),0,12);
     for(const value of [0,.25,.5,.75,1]){const y=bottom-value*(bottom-top);c.beginPath();c.moveTo(left,y);c.lineTo(width-right,y);c.stroke();c.fillText(String(Math.round(value*100)),3,y+4);}
@@ -68,21 +68,39 @@
     const badge=document.getElementById('status-text');
     if(badge)i18n.text(badge,data.analysis_running?'正在分析':data.last_inference_error?'分析失敗':current?'Scores ready':'尚未分析');
     if(key===renderKey&&!force)return;renderKey=key;
-    panel.replaceChildren();
-    panel.append(node('h3',t('Scenario scores')),
-      node('p',t('Experimental · uncalibrated candidate scores · notifications off'),'decision-note'));
-    const state=node('p',data.analysis_running?t('正在分析'):data.last_inference_error?t('Analysis unavailable. Try again.'):current?`${current.vision_ms} ms ${t('Vision')} + ${current.decision_ms} ms ${t('Classification')} · ${current.total_ms} ms ${t('Total')}`:t('Run one analysis to see scores.'),'decision-note');
-    state.setAttribute('role','status');panel.append(state);
-    if(current)panel.append(node('p',`${current.decision_model} · ${new Date(current.timestamp).toLocaleTimeString(i18n.language)}`,'decision-note'));
-    panel.append(node('p',t('Each bar shows the probability of that event being present. — means insufficient evidence.'),'decision-note'));
-    const canvas=node('canvas',undefined,'decision-distribution');canvas.setAttribute('role','img');
-    canvas.setAttribute('aria-label',settings.scenarios.map(id=>t(labels[id])+': '+(current?.results[id]?.probabilities?(100*current.results[id].probabilities.present).toFixed(1)+'%':t('Insufficient visual evidence'))).join('; '));
-    panel.append(canvas);chart(canvas,current?.results,settings.scenarios);
-    const details=node('details');details.append(node('summary',t('Full distribution')));
-    const table=node('table',undefined,'decision-table'),head=node('tr');
-    [t('Scenario'),...outcomes.map(x=>t(outcomeLabels[x]))].forEach(label=>head.append(node('th',label)));table.append(head);
-    for(const id of settings.scenarios){const row=node('tr');row.append(node('td',t(labels[id])));for(const outcome of outcomes)row.append(node('td',current?.results[id]?.probabilities?(100*current.results[id].probabilities[outcome]).toFixed(1)+'%':'—'));table.append(row);}
-    details.append(table);panel.append(details);
+    const shape=JSON.stringify([settings.scenarios,i18n.language]);
+    if(shape!==structureKey){
+      structureKey=shape;cancelAnimationFrame(animation);displayed={};panel.replaceChildren();
+      panel.append(node('h3',t('Scenario scores')));
+      const state=node('p','','decision-note');state.setAttribute('role','status');
+      const meta=node('p','','decision-note');
+      const canvas=node('canvas',undefined,'decision-distribution');canvas.setAttribute('role','img');
+      const details=node('details');details.append(node('summary',t('Full distribution')));
+      const table=node('table',undefined,'decision-table'),head=node('tr');
+      [t('Scenario'),...outcomes.map(x=>t(outcomeLabels[x]))].forEach(label=>head.append(node('th',label)));table.append(head);
+      const cells={};
+      for(const id of settings.scenarios){const row=node('tr');row.append(node('td',t(labels[id])));cells[id]=outcomes.map(()=>{const cell=node('td','—');row.append(cell);return cell;});table.append(row);}
+      details.append(table);panel.append(state,meta,canvas,details);view={state,meta,canvas,cells};
+    }
+    view.state.textContent=data.analysis_running?t('Updating scores…'):data.last_inference_error?t('Analysis unavailable. Try again.'):current?t('Scores ready'):t('Run one analysis to see scores.');
+    view.meta.textContent=current?`${new Date(current.timestamp).toLocaleTimeString(i18n.language)} · ${current.total_ms} ms · ${t('Candidate scores')}`:'';
+    const target={};
+    for(const id of settings.scenarios){
+      const probs=current?.results[id]?.probabilities;
+      target[id]=probs?.present??null;
+      outcomes.forEach((outcome,index)=>view.cells[id][index].textContent=probs?(100*probs[outcome]).toFixed(1)+'%':'—');
+    }
+    view.canvas.setAttribute('aria-label',settings.scenarios.map(id=>t(labels[id])+': '+(target[id]===null?t('Insufficient visual evidence'):(target[id]*100).toFixed(1)+'%')).join('; '));
+    cancelAnimationFrame(animation);
+    const initial={...displayed},start=performance.now();
+    const duration=window.matchMedia('(prefers-reduced-motion: reduce)').matches?0:240;
+    function draw(now){
+      const progress=duration?Math.min(1,(now-start)/duration):1,ease=1-Math.pow(1-progress,3),results={};
+      for(const id of settings.scenarios){const value=target[id];displayed[id]=value===null?null:(initial[id]??value)+(value-(initial[id]??value))*ease;results[id]={probabilities:displayed[id]===null?null:{present:displayed[id]}};}
+      chart(view.canvas,results,settings.scenarios);
+      if(progress<1)animation=requestAnimationFrame(draw);
+    }
+    animation=requestAnimationFrame(draw);
 
   }
   document.addEventListener('DOMContentLoaded',()=>{

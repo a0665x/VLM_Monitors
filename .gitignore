@@ -25,3 +25,6 @@ auto.key
 
 .venv-decision/
 .pytest_cache/
+# Private accounts, recordings and exports
+data/private/
+data/archive/

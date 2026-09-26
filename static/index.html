@@ -9,7 +9,7 @@
     <link rel="stylesheet" href="/static/css/shell.css">
     <script src="/static/js/locales.js"></script><script src="/static/js/i18n.js"></script>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>👁️</text></svg>">
-<link rel="stylesheet" href="/static/css/decisions.css"></head>
+<link rel="stylesheet" href="/static/css/decisions.css"><script src="/static/js/account.js"></script></head>
 <body class="host-app" data-page="monitor">
     <aside class="app-sidebar" aria-label="Main navigation">
       <a class="sidebar-brand" href="#monitor"><span class="brand-mark">V</span> VLM Monitor</a>
@@ -351,7 +351,7 @@
     <section id="settings-dialog" class="settings-page" aria-labelledby="settings-title" hidden>
       <div class="dialog-heading"><div><p class="eyebrow">PREFERENCES</p><h2 id="settings-title">服務設定</h2></div><span class="runtime-chip">即時生效</span></div>
       <section class="language-settings"><h3>顯示語言</h3><select data-language-select aria-label="Language"><option value="en">English</option><option value="zh-TW">繁體中文</option><option value="ja">日本語</option><option value="ko">한국어</option></select><p class="helper-copy">只變更介面語言，保留提示詞與模型輸出。</p></section>
-      <section class="decision-settings"><h3>Analysis mode</h3><label for="decision-mode">Mode</label><select id="decision-mode" class="form-control"><option value="direct">Single scenario · Vision</option><option value="parallel_decision">Multi-scenario · Parallel classifier (experimental)</option></select><p class="helper-copy">Vision observations → Qwen 1.5B → scenario scores.</p><p class="helper-copy">Experimental · uncalibrated candidate scores · notifications off</p><p id="decision-service-status" role="status" class="helper-copy"></p><button id="decision-save" class="btn btn-primary">Apply analysis mode</button><button id="decision-check" class="btn quiet">Check service</button></section>
+      <section class="decision-settings"><h3>Analysis mode</h3><label for="decision-mode">Mode</label><select id="decision-mode" class="form-control"><option value="direct">Single scenario · Vision</option><option value="parallel_decision">Multi-scenario · Parallel classifier</option></select><p class="helper-copy">Vision observations → Qwen 1.5B → scenario scores.</p><p class="helper-copy">Multi-scenario classification</p><p id="decision-service-status" role="status" class="helper-copy"></p><button id="decision-save" class="btn btn-primary">Apply analysis mode</button><button id="decision-check" class="btn quiet">Check service</button></section>
       <section class="engine-settings"><h3>推論引擎</h3><p class="helper-copy">切換引擎與模型，無須重新啟動。</p>
       <label for="engine-select">框架</label><select id="engine-select" class="form-control"><option value="ollama">Ollama</option><option value="vllm">vLLM</option></select>
       <label for="engine-model">模型</label><select id="engine-model" class="form-control"></select>

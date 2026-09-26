@@ -18,7 +18,7 @@ UNITPY
 }
 wait_local() {
   for ((attempt=0; attempt<30; attempt++)); do
-    if curl -fsS --max-time 1 http://127.0.0.1:5000/api/service >/dev/null 2>&1; then
+    if curl -fsS --max-time 1 http://127.0.0.1:5000/auth/status >/dev/null 2>&1; then
       echo "主機已就緒：http://127.0.0.1:5000/"
       echo "首頁上方可直接掃 QR code，手機可查看所有相機或分享自己的相機。"
       return 0

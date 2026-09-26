@@ -857,6 +857,10 @@ EOF
 }
 
 case "$MODE" in
+  account-setup)
+    if [[ -f .env ]]; then set -a; source .env; set +a; fi
+    exec .venv/bin/python scripts/account-setup.py
+    ;;
   local-up|local-restart|local-down|local-status|local-logs|local-tailnet|vllm-up|vllm-down|vllm-status|vllm-logs|decision-up|decision-down|decision-status|decision-logs)
     exec bash "$SCRIPT_DIR/scripts/local-service.sh" "$MODE"
     ;;

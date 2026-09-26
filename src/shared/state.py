@@ -7,6 +7,7 @@ class AppState:
     def __init__(self):
         self.lock = threading.Lock()
         self.latest_frame = None
+        self.latest_frame_at = 0
         self.selected_frame = None
         self.risk_score = 0.0
         self.risk_binary = False

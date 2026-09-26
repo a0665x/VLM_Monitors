@@ -365,6 +365,7 @@ class CameraThread(threading.Thread):
                 # Update UI
                 with self.state.lock:
                     self.state.latest_frame = cv2.cvtColor(frame_working, cv2.COLOR_BGR2RGB)
+                    self.state.latest_frame_at = time.time()
                 
                 # Push to RTSP
                 try:

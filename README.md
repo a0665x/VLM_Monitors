@@ -13,6 +13,8 @@ Run a local camera monitoring service, connect phones by QR code, and choose wha
 - **Scenario cards** — person, baby distress, fire, smoke, pets and custom prompts.
 - **Scenario scores** — compare multiple categories in one chart.
 - **Runtime settings** — select Ollama or vLLM and switch models from the UI.
+- **Accounts** — local administrator and Google sign-in, with private saved moments.
+- **Smart timelapse** — retain scene changes and event context with automatic storage limits.
 - **Four languages** — English, Traditional Chinese, Japanese and Korean.
 
 ## Get started
@@ -25,7 +27,9 @@ cd VLM_Monitors
 
 Choose **`a`** for first-time setup, or **`1` / `2`** for x86_64 / aarch64 installation. The setup prepares the host service, Ollama and phone connectivity.
 
-Open **[localhost:5000](http://127.0.0.1:5000)** → select a camera → choose a scenario → **Analyze once** or **Start monitoring**.
+Run `./run.sh account-setup` to get your first-time setup code, then open **[localhost:5000](http://127.0.0.1:5000)** and create your administrator account.
+
+Sign in → select a camera → choose a scenario → **Analyze once** or **Start monitoring**.
 
 ## Connect your phone
 
@@ -64,7 +68,7 @@ Open **[localhost:5000](http://127.0.0.1:5000)** → select a camera → choose 
 | `./run.sh vllm-up` | Start the configured vLLM engine |
 | `./run.sh decision-up` | Start the configured scenario classifier |
 
-[Installation & configuration](spec/SERVICE.md) · [Phone connectivity](spec/CLIENT_NETWORK.md) · [API](spec/API.md)
+[Accounts & saved moments](spec/ACCOUNTS_ARCHIVE.md) · [Installation & configuration](spec/SERVICE.md) · [Phone connectivity](spec/CLIENT_NETWORK.md) · [API](spec/API.md)
 
 ## 中文簡介
 

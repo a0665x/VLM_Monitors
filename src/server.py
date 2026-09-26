@@ -12,9 +12,8 @@ import httpx
 from pathlib import Path
 from types import SimpleNamespace
 from datetime import datetime, timezone
-from flask import Flask, jsonify, request, send_from_directory, Response
+from flask import Flask, jsonify, request, send_from_directory, Response, session
 from flask_socketio import SocketIO, emit
-from flask_cors import CORS
 
 # Add parent directory to path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -42,8 +41,8 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__, 
             static_folder='../static',
             static_url_path='/static')
-CORS(app)
-socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
+socketio = SocketIO(app, async_mode='threading')
+authenticated_sockets = {}
 
 # Global State
 app_state = None
@@ -185,7 +184,6 @@ class AnalysisThread(threading.Thread):
         try:
             analysis_epoch = self.state.analysis_epoch
             self.state.analysis_running = True
-            self.state.decision_result = None
             self.state.last_inference_error = ""
             self.state.last_inference_text = ""
             self.state.streaming_inference_text = ""
@@ -256,7 +254,7 @@ class AnalysisThread(threading.Thread):
                                                   frame_cap.preview_bytes, self.state.decision_settings['scenarios'])
                 decision.update(frame_id=frame_cap.id, timestamp=frame_cap.timestamp,
                                 source_id=self.state.selected_source_id, analysis_epoch=analysis_epoch)
-                # Experimental scores are observational; never drive legacy notifications.
+                # Multi-scenario events are archived independently of legacy binary notifications.
                 result = SimpleNamespace(risk=False, confidence=0.0, explanation=decision['observations'],
                                          model=decision['vision_model'] + ' → ' + decision['decision_model'],
                                          latency_ms=decision['total_ms'])
@@ -290,6 +288,15 @@ class AnalysisThread(threading.Thread):
             self.state.decision_result = decision
             point = {key: decision[key] for key in ('frame_id', 'timestamp', 'source_id', 'analysis_epoch', 'results')}
             self.state.decision_history = (self.state.decision_history + [point])[-120:]
+        archive = app.extensions.get('archive')
+        if archive:
+            events = [key for key, value in decision['results'].items() if value['state'] == 'present'] if decision else (['custom'] if result.risk else [])
+            if events:
+                try:
+                    event_frame = cv2.cvtColor(cv2.imdecode(np.frombuffer(frame_cap.preview_bytes, np.uint8), cv2.IMREAD_COLOR), cv2.COLOR_BGR2RGB)
+                    archive.record_event(self.state.selected_source_id, events, event_frame, datetime.fromisoformat(frame_cap.timestamp.replace('Z', '+00:00')).timestamp())
+                except Exception:
+                    logger.exception('Could not archive inference event')
         self.state.risk_binary = result.risk
         self.state.risk_score = result.confidence
         self.state.risk_explanation = result.explanation
@@ -351,6 +358,9 @@ def initialize_backend():
     
     logger.info("[BACKEND] Initializing backend services...")
     
+    if 'accounts' not in app.extensions:
+        from services.accounts import init_accounts
+        init_accounts(app)
     # 1. Ensure MediaMTX is running FIRST (before camera)
     import subprocess
     try:
@@ -404,6 +414,9 @@ def initialize_backend():
     app_state.analysis_thread = analysis_thread
     _refresh_local_source_state()
     
+    from services.archive import init_archive
+    from services.archive_capture import ArchiveCapture
+    init_archive(app, app.extensions['accounts'], ArchiveCapture(app_state), lambda: app_state.sources)
     logger.info("[BACKEND] Backend initialized successfully!")
 
 
@@ -1321,17 +1334,28 @@ def get_vision_models():
 @socketio.on('connect')
 def handle_connect():
     """Handle WebSocket connection."""
+    accounts = app.extensions.get('accounts')
+    if accounts and not accounts.current():
+        return False
+    if accounts:
+        import hashlib
+        authenticated_sockets[request.sid] = hashlib.sha256(session.get('sid', '').encode()).hexdigest()
     logger.info(f"Client connected: {request.sid}")
     emit('connected', {'message': 'Connected to VLM_Monitors'})
 
 @socketio.on('disconnect')
 def handle_disconnect():
     """Handle WebSocket disconnection."""
+    authenticated_sockets.pop(request.sid, None)
     logger.info(f"Client disconnected: {request.sid}")
 
 @socketio.on('request_status')
 def handle_request_status():
     """Handle request for current status."""
+    accounts = app.extensions.get('accounts')
+    if accounts and not accounts.current():
+        socketio.server.disconnect(request.sid, namespace='/')
+        return
     emit('status_update', build_status_payload(app_state))
     emit('sources_update', {
         'sources': _sorted_sources(),
@@ -1352,6 +1376,14 @@ def metrics_emitter():
     """Background thread to emit system metrics via WebSocket."""
     while True:
         try:
+            accounts = app.extensions.get('accounts')
+            if accounts:
+                with accounts.connect() as db:
+                    valid = {row['id'] for row in db.execute('SELECT id FROM sessions WHERE expires>?', (time.time(),))}
+                for sid, token in list(authenticated_sockets.items()):
+                    if token not in valid:
+                        socketio.server.disconnect(sid, namespace='/')
+                        authenticated_sockets.pop(sid, None)
             metrics = SystemMonitor().get_metrics()
             socketio.emit('metrics_update', metrics)
             if app_state is not None:
