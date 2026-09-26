@@ -11,7 +11,7 @@
    el('usage-meter').value=Math.min(100,100*data.usage.bytes/data.quota_bytes);
    el('usage').textContent=`${data.usage.n} ${t('saved frames')} · ${(data.usage.bytes/1048576).toFixed(1)} / ${(data.quota_bytes/1048576).toFixed(0)} MB`;
    if(data.error)message(data.error);else if(data.storage?.paused)message('Host disk space is low. Recording paused.');
-   el('retention').textContent+=` · ${t('Host storage')}: ${(data.storage.used_bytes/1073741824).toFixed(2)} / ${(data.storage.quota_bytes/1073741824).toFixed(0)} GB`; 
+   el('retention').textContent+=` · ${t('Host storage')}: ${(data.storage.used_bytes/1073741824).toFixed(2)} / ${(data.storage.quota_bytes/1073741824).toFixed(0)} GB`;
    const days=data.days.map(d=>d.day).join(',');if(el('export-day').dataset.days!==days){const previous=el('export-day').value;el('export-day').replaceChildren();data.days.forEach(d=>el('export-day').add(new Option(`${d.day} · ${d.frames} ${t('frames')}`,d.day)));if(data.days.some(d=>d.day===previous))el('export-day').value=previous;el('export-day').dataset.days=days;}
    el('export-button').disabled=!data.days.length||data.job?.state==='working';
    el('export-status').textContent=t(data.job?.state==='working'?'Creating video…':data.job?.state==='ready'?'Video ready':data.job?.state==='error'?'Video export failed':'');el('downloads').hidden=data.job?.state!=='ready';
