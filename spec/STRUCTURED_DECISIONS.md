@@ -129,6 +129,12 @@ The setup menu also exposes start/stop classifier actions. Model files are cache
 
 - Start/one-shot requests check classifier readiness before vision inference. A missing classifier returns HTTP 503 without loading the vision model.
 - Inference errors stop continuous analysis to prevent repeated failed GPU work.
-- Pausing monitoring or completing a one-shot analysis requests unloading the current Ollama model and the experimental classifier. The classifier process can reload its weights on the next request; this adds cold-start latency. vLLM residency remains managed by its service.
+- Pausing monitoring or completing a one-shot analysis requests unloading the current Ollama model and stopping the classifier model worker. The CPU-only classification service stays ready; its worker loads weights on the next request, which adds cold-start latency. vLLM residency remains managed by its service.
 - Analysis mode changes apply immediately from Settings. Failed changes restore the selected mode and show the reason. Single-scenario mode selects one card; parallel mode allows multiple cards.
 - System GPU usage includes desktop and browser rendering, even when no AI model is loaded.
+
+### On-demand model process
+
+`./run.sh decision-up` starts the CPU-only coordinator and enables it at login. Its `/health` response reports `ready: true, loaded: false, state: standby` before inference. The model runs in a separate process only when needed. `/unload` terminates that process, including its CUDA context; the next request starts a new worker. An idle worker also exits after `DECISION_IDLE_SECONDS` (default 60 seconds). Continuous monitoring reuses the worker between requests.
+
+The configured weights are `Qwen/Qwen2.5-1.5B-Instruct`, using independent candidate scores inspired by Jev/RLCD. These are not the original RLCD fine-tuned weights.
