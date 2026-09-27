@@ -59,7 +59,7 @@ class Accounts:
             db.execute('INSERT INTO attempts VALUES(?,1,?) ON CONFLICT(key) DO UPDATE SET count=count+1',(key,now+900))
     def bootstrap(self,token,email,name,password):
         if not secrets.compare_digest(str(token),self.setup_token):raise ValueError('Invalid setup code')
-        if not isinstance(password,str) or not 12<=len(password)<=128:raise ValueError('Use a password with 12–128 characters')
+        if not isinstance(password,str) or not 6<=len(password)<=128:raise ValueError('Use a password with 6–128 characters')
         if not isinstance(email,str) or '@' not in email or len(email)>254:raise ValueError('Enter a valid email')
         uid=secrets.token_hex(16)
         with self.connect() as db:

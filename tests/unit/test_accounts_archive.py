@@ -161,3 +161,11 @@ def test_member_cannot_change_host_or_publish_foreign_camera(host):
     assert member.post('/api/sources/register',json={'source_id':'phone'},headers=headers).status_code==403
     assert member.post('/proxy/webrtc/phone/whip',headers=headers).status_code==403
     assert member.post('/api/sources/register',json={'source_id':'own-phone'},headers=headers).status_code==200
+
+
+def test_setup_accepts_six_characters_and_rejects_five(host):
+    _,accounts,_=host
+    with pytest.raises(ValueError,match='6–128'):
+        accounts.bootstrap(accounts.setup_token,'admin@example.test','Admin','12345')
+    uid=accounts.bootstrap(accounts.setup_token,'admin@example.test','Admin','123456')
+    assert uid and accounts.initialized()

@@ -2,7 +2,7 @@
 
 ## First sign-in
 
-Start the host, then run `./run.sh account-setup` on that host. Open `/setup`, paste the one-time setup code and choose your administrator email and password (12–128 characters). Private account data stays in `data/private`, outside Git.
+Start the host, then run `./run.sh account-setup` on that host. Open `/setup`, paste the one-time setup code and choose your administrator email and password (6–128 characters). Private account data stays in `data/private`, outside Git.
 
 Local sign-in works immediately. Google sign-in uses your own Google Cloud OAuth **Web application** credentials. Set these values in the host environment file, then restart the service:
 
