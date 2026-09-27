@@ -25,6 +25,7 @@ function changeTab(name) {
         el(tab+'-tab').setAttribute('aria-selected', String(tab===name)); el(tab+'-panel').hidden = tab!==name;
     }
 }
+el('share-phone').addEventListener('click',()=>{changeTab('publish');el('publish-panel').scrollIntoView({block:'start',behavior:'smooth'});});
 for (const name of ['watch','publish']) el(name+'-tab').addEventListener('click',()=>changeTab(name));
 el('help-toggle').addEventListener('click',()=>{el('connection-guide').hidden=!el('connection-guide').hidden;el('help-toggle').setAttribute('aria-expanded',String(!el('connection-guide').hidden));});
 el('check-connection').addEventListener('click',refresh);
@@ -116,7 +117,7 @@ async function register(){await api('/api/sources/register',{source_id:deviceId,
 async function releaseWakeLock(){if(wakeLock){try{await wakeLock.release();}catch{}wakeLock=null;}}
 async function keepAwake(){if('wakeLock' in navigator && !document.hidden){try{wakeLock=await navigator.wakeLock.request('screen');}catch{}}}
 async function stopPublishing(){
-    generation++;publishing=false;el('sharing-banner').hidden=true;clearInterval(heartbeat);heartbeat=null;
+    generation++;publishing=false;el('sharing-banner').hidden=true;el('analyze-phone').hidden=true;clearInterval(heartbeat);heartbeat=null;
     if(publisher){publisher.close();publisher=null;}
     if(localStream){localStream.getTracks().forEach(t=>t.stop());localStream=null;}
     el('client-preview').srcObject=null;el('client-preview').hidden=true;
@@ -137,12 +138,16 @@ el('start-publishing').addEventListener('click',async()=>{
         for(const id of ['client-camera-name','client-facing','client-microphone'])el(id).disabled=true;
         try{localStorage.setItem('vlm-camera-client-name',el('client-camera-name').value);}catch{}
         i18n.text(el('publish-message'),'鏡頭已開啟，正在建立私人 WebRTC 連線…');
+        // Claim the source before WHIP signaling; the server checks its owner.
+        await register();
+        if(current!==generation)return;
         publisher=new MediaMTXWebRTCPublisher({url:new URL('/proxy/webrtc/'+deviceId+'/whip',location.origin).href,stream,videoCodec:'h264/90000',videoBitrate:1500,audioCodec:'opus/48000',audioBitrate:32,audioVoice:true,
-            onConnected:async()=>{if(current!==generation)return;publishing=true;el('sharing-banner').hidden=false;try{await register();if(current!==generation)return;clearInterval(heartbeat);heartbeat=setInterval(()=>{if(publishing)register().catch(()=>{});},5000);i18n.text(el('publish-message'),'正在分享 · 其他手機已可在相機清單選擇這台裝置');keepAwake();refresh();}catch(e){i18n.text(el('publish-message'),'影像已連接，但來源登記失敗，請停止後重試。');}},
-            onError:err=>{if(current!==generation)return;publishing=false;el('sharing-banner').hidden=true;clearInterval(heartbeat);i18n.text(el('publish-message'),'影像連線中斷，正在重試。請檢查 Tailscale；');}});
+            onConnected:async()=>{if(current!==generation)return;publishing=true;el('sharing-banner').hidden=false;try{await register();if(current!==generation)return;clearInterval(heartbeat);heartbeat=setInterval(()=>{if(publishing)register().catch(()=>{});},5000);i18n.text(el('publish-message'),'正在分享 · 其他手機已可在相機清單選擇這台裝置');keepAwake();refresh();const auth=await window.accountReady;if(current===generation&&auth.user?.role==='admin')el('analyze-phone').hidden=false;}catch(e){i18n.text(el('publish-message'),'影像已連接，但來源登記失敗，請停止後重試。');}},
+            onError:err=>{if(current!==generation)return;publishing=false;el('analyze-phone').hidden=true;el('sharing-banner').hidden=true;clearInterval(heartbeat);i18n.text(el('publish-message'),'影像連線中斷，正在重試。請檢查 Tailscale；');}});
         stream.getTracks().forEach(track=>track.addEventListener('ended',()=>{if(current===generation)stopPublishing();}));
     }catch(error){if(current!==generation)return;await stopPublishing();i18n.text(el('publish-message'),error.name==='NotAllowedError'?'相機權限未允許。請在瀏覽器設定允許相機，再按開始。':error.message);}
 });
+el('analyze-phone').addEventListener('click',async()=>{el('analyze-phone').disabled=true;try{await api('/api/sources/select',{source_id:deviceId});i18n.text(el('publish-message'),'Camera selected. Start analysis from the host dashboard.');}catch(e){el('publish-message').textContent=e.message;}finally{el('analyze-phone').disabled=false;}});
 el('stop-publishing').addEventListener('click',stopPublishing);
 window.addEventListener('pagehide',()=>{generation++;publishing=false;el('sharing-banner').hidden=true;clearInterval(heartbeat);publisher?.close();localStream?.getTracks().forEach(t=>t.stop());fetch('/api/sources/disconnect',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({source_id:deviceId}),keepalive:true}).catch(()=>{});});
 document.addEventListener('visibilitychange',()=>{if(publishing && !document.hidden)keepAwake();if(publishing && document.hidden)i18n.text(el('publish-message'),'頁面已移到背景，手機可能暫停相機。回到前景後請確認其他装置仍可觀看。');});

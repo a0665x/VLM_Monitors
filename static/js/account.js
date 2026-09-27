@@ -9,7 +9,7 @@
    const auth=await window.accountReady;const headers=new Headers(options.headers);headers.set('X-CSRF-Token',auth.csrf);options={...options,headers};
   }
   const response=await original(input,options);
-  if(response.status===401&&url.origin===location.origin)location.assign('/login');
+  if(response.status===401&&url.origin===location.origin)location.assign('/login?next='+encodeURIComponent(location.pathname+location.search+location.hash));
   return response;
  };
  document.addEventListener('DOMContentLoaded',async()=>{

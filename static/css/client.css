@@ -2,3 +2,23 @@
 header { gap:10px; flex-wrap:wrap; } header .brand { margin-right:auto; } header button { font-size:12px; padding:8px 12px; }.welcome{padding:4px 0 18px}.welcome h1{font-size:26px}.tabs{position:sticky;top:0;z-index:5;background:var(--bg);padding:10px 0}.client-footer{padding:12px 4px}.client-footer p{margin-top:12px}dialog{color:#edf7f6;background:var(--card);border:1px solid var(--line);border-radius:18px;padding:24px;width:min(460px,calc(100% - 28px));max-height:90dvh;margin:auto}dialog::backdrop{background:#000b}.connect-code{text-align:center;margin:20px 0}.connect-code img{width:224px;max-width:100%;padding:10px;background:white;border-radius:12px}dialog [data-connect-link]{display:block;margin:16px 0}#sharing-banner{font-size:13px}.source-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));overflow:visible}.source-choice{max-width:none;min-width:0}.source-gallery{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;margin-bottom:20px}.gallery-card{border:1px solid var(--line);border-radius:12px;overflow:hidden;background:#0c1820}.gallery-card iframe{width:100%;height:180px;border:0;display:block}.gallery-card button{width:100%;border:0;border-radius:0;background:#203831;color:#edf7f6}.gallery-card p{padding:16px;font-size:13px;color:var(--muted)}@media(max-width:600px){.source-gallery{grid-template-columns:1fr}.welcome h1{font-size:23px}.tabs button{padding:12px 8px;font-size:14px}header .brand{width:100%}}
 header [data-language-select]{width:auto;margin:0;font-size:12px;order:1}header .brand{order:0}header #invite-open,header #help-toggle{order:2}@media(max-width:600px){header .brand{width:auto;flex:1}header #invite-open,header #help-toggle{flex:1 1 40%}}
 @media(max-width:600px){header{display:grid;grid-template-columns:1fr 1fr}header .brand{white-space:nowrap}header [data-language-select]{justify-self:end;max-width:100%}header #invite-open,header #help-toggle{width:100%;height:100%}}
+
+/* Allow translated labels to wrap instead of shrinking or clipping. */
+button,.quiet{white-space:normal;word-break:normal;overflow-wrap:anywhere;line-height:1.5;height:auto;min-width:0;max-width:100%;text-overflow:clip}
+button>span{min-width:0;white-space:normal}
+input,select{min-width:0;max-width:100%}
+.panel,.section-title>*{min-width:0}
+.share-phone{display:block;margin:16px 0 8px;width:100%;font-size:17px;padding:15px}
+#publish-panel{scroll-margin-top:90px}
+.client-footer{display:flex;flex-wrap:wrap;align-items:center;gap:12px}.client-footer>p{flex-basis:100%}
+@media(max-width:600px){
+ header,main{padding:14px}.panel{padding:16px}.welcome h1{letter-spacing:0;font-size:23px}
+ .tabs{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px}
+ .tabs button{min-height:52px;line-height:1.5;padding:12px 8px}
+ .actions{flex-wrap:wrap}.actions button{flex:1 1 100%}
+ .source-gallery{grid-template-columns:minmax(0,1fr)}
+ .gallery-card iframe{height:auto;aspect-ratio:16/9}
+ .form-row{grid-template-columns:minmax(0,1fr)}
+ input,select{font-size:16px}header [data-language-select]{font-size:14px}
+ .mic input{flex:0 0 auto}.connection{max-width:100%;overflow-wrap:anywhere}
+}

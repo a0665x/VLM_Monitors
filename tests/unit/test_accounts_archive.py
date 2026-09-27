@@ -147,7 +147,7 @@ def test_google_requires_verified_allowed_identity(tmp_path,monkeypatch):
 def test_member_cannot_change_host_or_publish_foreign_camera(host):
     from flask import session
     app,accounts,_=host
-    for route in ['/api/sources/register','/api/settings/engine','/proxy/webrtc/phone/whip']:
+    for route in ['/api/sources/register','/api/settings/engine','/proxy/webrtc/phone/whip','/proxy/webrtc/own-phone/whip']:
         app.add_url_rule(route,route,lambda:jsonify(ok=True),methods=['POST'])
     c,info=admin(host)
     assert c.post('/api/sources/register',json={'source_id':'phone'},headers={'X-CSRF-Token':info['csrf']}).status_code==200
@@ -160,7 +160,9 @@ def test_member_cannot_change_host_or_publish_foreign_camera(host):
     assert member.post('/api/settings/engine',json={},headers=headers).status_code==403
     assert member.post('/api/sources/register',json={'source_id':'phone'},headers=headers).status_code==403
     assert member.post('/proxy/webrtc/phone/whip',headers=headers).status_code==403
+    assert member.post('/proxy/webrtc/own-phone/whip',headers=headers).status_code==403
     assert member.post('/api/sources/register',json={'source_id':'own-phone'},headers=headers).status_code==200
+    assert member.post('/proxy/webrtc/own-phone/whip',headers=headers).status_code==200
 
 
 def test_setup_accepts_six_characters_and_rejects_five(host):
@@ -169,3 +171,13 @@ def test_setup_accepts_six_characters_and_rejects_five(host):
         accounts.bootstrap(accounts.setup_token,'admin@example.test','Admin','12345')
     uid=accounts.bootstrap(accounts.setup_token,'admin@example.test','Admin','123456')
     assert uid and accounts.initialized()
+
+def test_phone_login_preserves_destination_and_rejects_external_targets(host):
+    from services.accounts import safe_destination
+    app,_,_=host
+    response=app.test_client().get('/join?mode=publish')
+    from urllib.parse import urlsplit,parse_qs
+    assert parse_qs(urlsplit(response.location).query)['next']==['/join?mode=publish']
+    for invalid in ('https://example.com','//example.com','/\\example.com','/join?next=https://example.com'):
+        assert safe_destination(invalid)=='/join'
+    assert safe_destination('/join?mode=publish')=='/join?mode=publish'

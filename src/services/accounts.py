@@ -6,11 +6,15 @@ import sqlite3
 import time
 from datetime import timedelta
 from pathlib import Path
-from urllib.parse import urlsplit
+from urllib.parse import urlsplit, urlencode
 from flask import Blueprint, abort, g, jsonify, redirect, request, session, send_from_directory, current_app
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask.sessions import SecureCookieSessionInterface
 from werkzeug.middleware.proxy_fix import ProxyFix
+
+def safe_destination(value):
+    allowed={'/','/#monitor','/#settings','/#connect','/join','/join?mode=watch','/join?mode=publish','/archive'}
+    return value if value in allowed else '/join'
 
 class Accounts:
     def __init__(self, directory):
@@ -117,6 +121,7 @@ def init_accounts(app,directory=None):
         if not oauth or not store.initialized():return redirect('/login')
         user=store.current()
         session['link_user']=user['id'] if user else None
+        session['login_next']=safe_destination(request.args.get('next'))
         return oauth.authorize_redirect(public+'/auth/google/callback',nonce=secrets.token_urlsafe(32))
     @bp.route('/auth/google/callback')
     def callback():
@@ -136,7 +141,8 @@ def init_accounts(app,directory=None):
                     if email not in allowed or db.execute('SELECT 1 FROM users WHERE email=?',(email,)).fetchone():raise ValueError('Account needs administrator approval')
                     uid=secrets.token_hex(16);db.execute('INSERT INTO users(id,email,name,google_sub) VALUES(?,?,?,?)',(uid,email,str(info.get('name',email))[:80],sub))
                 else:uid=row['id']
-            store.login(uid);return redirect('/join')
+            destination=safe_destination(session.pop('login_next',None))
+            store.login(uid);return redirect(destination)
         except Exception:
             app.logger.warning('Google sign-in rejected')
             return redirect('/login?error=google')
@@ -155,7 +161,7 @@ def init_accounts(app,directory=None):
         if request.path.startswith('/static/') or request.path in {'/login','/setup','/auth/status','/auth/setup','/auth/login','/auth/google','/auth/google/callback'}:return
         if not g.user:
             if request.path.startswith(('/api/','/proxy/','/auth/')):return jsonify(error='Sign in required'),401
-            return redirect('/login')
+            return redirect('/login?'+urlencode({'next':safe_destination(request.full_path.rstrip('?'))}))
         if request.method not in ('GET','HEAD','OPTIONS') and request.path.startswith('/api/'):
             if request.path in {'/api/sources/register','/api/sources/heartbeat','/api/sources/disconnect'}:
                 import re

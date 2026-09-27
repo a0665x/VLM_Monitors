@@ -35,7 +35,8 @@ Sign in → select a camera → choose a scenario → **Analyze once** or **Star
 
 1. Connect the host and phone to the same **Tailscale** network.
 2. Open **Connect phones** on the host and scan its QR code.
-3. Choose **All cameras** to watch, or **Share my camera** to publish the phone's view.
+3. Sign in, then choose **All cameras** or **Use this phone as a camera** → **Start sharing**. Allow camera access.
+4. After sharing, the administrator can choose **Use this camera for AI** and start analysis from the host dashboard.
 
 <table>
 <tr><th>Watch cameras</th><th>Share your camera</th></tr>
