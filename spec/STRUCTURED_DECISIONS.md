@@ -129,12 +129,12 @@ The setup menu also exposes start/stop classifier actions. Model files are cache
 
 - Start/one-shot requests check classifier readiness before vision inference. A missing classifier returns HTTP 503 without loading the vision model.
 - Inference errors stop continuous analysis to prevent repeated failed GPU work.
-- Pausing monitoring or completing a one-shot analysis requests unloading the current Ollama model and stopping the classifier model worker. The CPU-only classification service stays ready; its worker loads weights on the next request, which adds cold-start latency. vLLM residency remains managed by its service.
+- Pausing monitoring or completing a one-shot analysis starts an idle grace period. After `MODEL_IDLE_SECONDS` (default 300 seconds) without analysis, the current Ollama model is unloaded and the classifier worker stops. New analysis restarts the timer. The CPU-only classification service stays ready; its worker loads weights on the next request, which adds cold-start latency. vLLM residency remains managed by its service.
 - Analysis mode changes apply immediately from Settings. Failed changes restore the selected mode and show the reason. Single-scenario mode selects one card; parallel mode allows multiple cards.
 - System GPU usage includes desktop and browser rendering, even when no AI model is loaded.
 
 ### On-demand model process
 
-`./run.sh decision-up` starts the CPU-only coordinator and enables it at login. Its `/health` response reports `ready: true, loaded: false, state: standby` before inference. The model runs in a separate process only when needed. `/unload` terminates that process, including its CUDA context; the next request starts a new worker. An idle worker also exits after `DECISION_IDLE_SECONDS` (default 60 seconds). Continuous monitoring reuses the worker between requests.
+`./run.sh decision-up` starts the CPU-only coordinator and enables it at login. Its `/health` response reports `ready: true, loaded: false, state: standby` before inference. The model runs in a separate process only when needed. `/unload` terminates that process, including its CUDA context; the next request starts a new worker. An idle worker also exits after `MODEL_IDLE_SECONDS` (default 300 seconds). Continuous monitoring renews both model leases, including during long analysis intervals. Merely viewing a page does not keep models resident.
 
 The configured weights are `Qwen/Qwen2.5-1.5B-Instruct`, using independent candidate scores inspired by Jev/RLCD. These are not the original RLCD fine-tuned weights.

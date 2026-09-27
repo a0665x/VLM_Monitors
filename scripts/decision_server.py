@@ -12,7 +12,7 @@ from pydantic import BaseModel, Field
 from services.decisions import validate_settings
 
 MODEL = os.getenv('DECISION_MODEL', 'Qwen/Qwen2.5-1.5B-Instruct')
-IDLE_SECONDS = max(5, int(os.getenv('DECISION_IDLE_SECONDS', '60')))
+IDLE_SECONDS = max(5, int(os.getenv('MODEL_IDLE_SECONDS', '300')))
 app = FastAPI()
 lock = threading.Lock()
 process = connection = None
@@ -79,7 +79,7 @@ def shutdown():
 @app.get('/health')
 def health():
     return {'ready': True, 'loaded': loaded, 'model': MODEL,
-            'device': 'on-demand', 'state': 'loaded' if loaded else 'standby',
+            'idle_timeout_seconds': IDLE_SECONDS, 'device': 'on-demand', 'state': 'loaded' if loaded else 'standby',
             'error': load_error, 'calibrated': False, 'method': 'batched_candidate_logits'}
 
 
@@ -133,3 +133,11 @@ def unload():
         return {'success': True, 'loaded': False}
     finally:
         lock.release()
+
+
+@app.post('/keepalive')
+def keepalive():
+    global last_used
+    # Never start or load a worker merely because a client renews its lease.
+    last_used = time.monotonic()
+    return {'success': True, 'loaded': loaded}

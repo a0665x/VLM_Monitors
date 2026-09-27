@@ -113,11 +113,33 @@ def test_preflight_failure_never_generates_vision(monkeypatch):
         asyncio.run(decisions.analyze_frame(object(),'vision',b'jpeg',['person']))
 
 
-def test_idle_release_skips_active_monitor(monkeypatch):
-    state=AppState();calls=[]
+def test_idle_release_waits_and_skips_active_monitor(monkeypatch):
+    state=AppState();calls=[];clock=[1000.0]
+    monkeypatch.setattr(server.time,'monotonic',lambda:clock[0])
     thread=server.AnalysisThread(state,SimpleNamespace(ollama_client=SimpleNamespace(unload_model=lambda model:calls.append(model))))
-    state.inference_backend='ollama';state.auto_analyze=True
-    thread.release_idle_models();assert calls==[]
-    state.auto_analyze=False
+    state.inference_backend='ollama';thread.last_model_use=1000;thread.model_idle_seconds=300
+    clock[0]=1299;thread.release_idle_models();assert calls==[]
+    clock[0]=1301;state.auto_analyze=True;thread.release_idle_models();assert calls==[]
+    thread.set_auto_analyze(False)
+    thread.release_idle_models();assert calls==[]  # Stopping starts a new grace period.
+    clock[0]=1602;state.analysis_running=True;thread.release_idle_models();assert calls==[]
+    state.analysis_running=False
+    thread.analysis_lock.acquire();thread.release_idle_models();assert calls==[];thread.analysis_lock.release()
     thread.release_idle_models();assert calls==[state.scoring_model]
+    thread.release_idle_models();assert calls==[state.scoring_model]  # Unload once.
     assert not thread.analysis_lock.locked()
+
+
+def test_new_analysis_extends_idle_deadline(monkeypatch):
+    state=AppState();calls=[];clock=[1000.0]
+    monkeypatch.setattr(server.time,'monotonic',lambda:clock[0])
+    thread=server.AnalysisThread(state,SimpleNamespace(ollama_client=SimpleNamespace(unload_model=lambda model:calls.append(model))))
+    thread.model_idle_seconds=300;thread.last_model_use=1000
+    clock[0]=1250
+    monkeypatch.setattr(server,'get_frame_for_selected_source',lambda state:None)
+    monkeypatch.setattr(thread,'_emit_status_update',lambda:None)
+    monkeypatch.setattr(server,'emit_inference_stream_update',lambda *args:None)
+    thread._analyze()
+    assert thread.last_model_use==1250 and calls==[]
+    clock[0]=1500;thread.release_idle_models();assert calls==[]
+    clock[0]=1551;thread.release_idle_models();assert calls==[state.scoring_model]

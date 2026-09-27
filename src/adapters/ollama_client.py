@@ -84,6 +84,7 @@ class OllamaClient:
             "prompt": full_prompt,
             "stream": False,
             "options": self._generation_options(),
+            "keep_alive": max(5, int(os.getenv("MODEL_IDLE_SECONDS", "300"))),
         }
 
         if image_bytes:
@@ -145,6 +146,7 @@ class OllamaClient:
             "prompt": full_prompt,
             "stream": True,
             "options": self._generation_options(),
+            "keep_alive": max(5, int(os.getenv("MODEL_IDLE_SECONDS", "300"))),
         }
 
         if image_bytes:

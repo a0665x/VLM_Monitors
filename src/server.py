@@ -107,12 +107,16 @@ class AnalysisThread(threading.Thread):
         self.stop_event = threading.Event()
         self.wake_event = threading.Event()
         self.immediate_requested = False
-        
+        self.model_idle_seconds = max(5, int(os.getenv('MODEL_IDLE_SECONDS', '300')))
+        self.last_model_use = None
+        self.last_keepalive = 0
+
     def run(self):
         next_run_at = None
         while self.running and not self.stop_event.is_set():
             if not self.state.auto_analyze:
                 next_run_at = None
+                self.release_idle_models()
                 self.wake_event.wait(timeout=0.25)
                 self.wake_event.clear()
                 continue
@@ -128,7 +132,10 @@ class AnalysisThread(threading.Thread):
                 next_run_at = time.monotonic() + max(0.0, float(self.state.analysis_interval))
                 continue
 
-            timeout = max(0.0, next_run_at - now)
+            if self.last_model_use is not None and now-self.last_keepalive >= min(30, self.model_idle_seconds/2):
+                self._keep_models_warm()
+                self.last_keepalive = time.monotonic()
+            timeout = min(1.0, max(0.0, next_run_at - now))
             self.wake_event.wait(timeout=timeout)
             self.wake_event.clear()
             
@@ -144,8 +151,8 @@ class AnalysisThread(threading.Thread):
     def set_auto_analyze(self, enabled: bool):
         self.state.auto_analyze = enabled
         self.immediate_requested = enabled
-        if not enabled:
-            self.state.analysis_running = False
+        if not enabled and self.last_model_use is not None:
+            self.last_model_use = time.monotonic()
         self.wake_event.set()
 
     def notify_config_changed(self, immediate: bool = False):
@@ -154,10 +161,32 @@ class AnalysisThread(threading.Thread):
         self.wake_event.set()
 
     def release_idle_models(self):
-        if self.state.auto_analyze or not self.analysis_lock.acquire(blocking=False):
+        if self.last_model_use is None or time.monotonic()-self.last_model_use < self.model_idle_seconds:
+            return
+        if self.state.auto_analyze or self.state.analysis_running or not self.analysis_lock.acquire(blocking=False):
             return
         try:
             self._unload_models()
+            self.last_model_use = None
+        except Exception:
+            logger.exception("Failed to release idle models")
+            self.last_model_use = time.monotonic()
+        finally:
+            self.analysis_lock.release()
+
+    def _keep_models_warm(self):
+        # Renew leases only while the user has continuous monitoring enabled.
+        if not self.analysis_lock.acquire(blocking=False):
+            return
+        try:
+            if self.state.inference_backend == 'ollama':
+                base = getattr(self.engine.ollama_client, 'base_url', 'http://127.0.0.1:11434')
+                httpx.post(base+'/api/generate', json={'model': self.state.scoring_model, 'prompt': '', 'keep_alive': self.model_idle_seconds}, timeout=2)
+            if self.state.decision_settings['mode'] == 'parallel_decision':
+                from services.decisions import DECISION_URL
+                httpx.post(DECISION_URL+'/keepalive', timeout=2)
+        except httpx.HTTPError:
+            logger.debug('Could not renew model lease')
         finally:
             self.analysis_lock.release()
 
@@ -229,16 +258,11 @@ class AnalysisThread(threading.Thread):
             fc.preview_bytes = buffer.tobytes()
             asyncio.run(self._run_inference(fc, analysis_epoch))
         finally:
-            try:
-                if not self.state.auto_analyze:
-                    self._unload_models()
-            except Exception:
-                logger.exception("Failed to release idle models")
-            finally:
-                self.state.analysis_running = False
-                self.analysis_lock.release()
-                self._emit_status_update()
-            
+            self.last_model_use = time.monotonic()
+            self.state.analysis_running = False
+            self.analysis_lock.release()
+            self._emit_status_update()
+
     async def _run_inference(self, frame_cap, analysis_epoch):
         def on_stream_chunk(text: str, done: bool = False):
             if analysis_epoch != self.state.analysis_epoch:
