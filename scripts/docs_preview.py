@@ -67,13 +67,14 @@ def api(name):
     if name.startswith('archive/frame/demo-'):return send_from_directory(ROOT/'docs/assets','scenario-person-pet.png')
     routes={
       'status':status(),
+      'service':dict(inference_backend='ollama'),
       'sources':dict(sources=SOURCES,selected_source_id=selected),
       'network':dict(sources=SOURCES,selected_source_id=selected,share_ready=True,media_ready=True,backend='ollama',model='qwen2.5vl:3b'),
       'share':dict(ready=True,url='https://example.com/vlm-monitor-demo',message='Documentation QR only'),
       'public-urls':dict(ui='',webrtc=''),
       'metrics':dict(cpu_percent=0,ram_percent=0,gpu_percent=0),
       'settings/decisions':dict(settings=settings,service=dict(ready=True)),
-      'settings/engine':dict(backend='ollama',model='qwen2.5vl:3b',models=['qwen2.5vl:3b'],available=True),
+      'settings/engine':dict(current_backend='ollama',current_model='qwen2.5vl:3b',backend='ollama',model='qwen2.5vl:3b',models=['qwen2.5vl:3b'],available=True),
       'models/vision':dict(models=['qwen2.5vl:3b']),
       'devices/video':dict(devices=[]),'devices/audio':dict(devices=[]),
       'prompt/current':dict(text='Is there a person visible in the image?'),

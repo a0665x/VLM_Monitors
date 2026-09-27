@@ -14,23 +14,57 @@ function markScenario(text) {
     document.querySelectorAll('.scenario-card').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.scenario === match)));
     setText('prompt-state', i18n.t('已套用') + ' · ' + i18n.t(scenarios.find(s => s[0] === match)[2]));
 }
-async function refreshEngine() {
-    const requestId = ++engineRequest;
-    const backend = document.getElementById('engine-select').value;
-    const select = document.getElementById('engine-model');
-    const save = document.getElementById('engine-save');
-    save.disabled = true;
-    select.replaceChildren();
-    setText('engine-status', '正在連線…');
+let engineBusy = false;
+let activeEngine = null;
+function setEngineBusy(value) {
+    engineBusy=value;
+    document.getElementById('engine-select').disabled=value;
+    document.getElementById('engine-model').disabled=value;
+}
+function restoreEngineSelection() {
+    if(!activeEngine)return;
+    document.getElementById('engine-select').value=activeEngine.backend;
+    const select=document.getElementById('engine-model');
+    if(!Array.from(select.options||[]).some(option=>option.value===activeEngine.model))select.replaceChildren(new Option(activeEngine.model,activeEngine.model));
+    select.value=activeEngine.model;
+}
+async function saveEngineSelection() {
+    const backend=document.getElementById('engine-select').value;
+    const model=document.getElementById('engine-model').value;
+    if(activeEngine?.backend===backend && activeEngine?.model===model)return;
+    setText('engine-status','Saving…');
+    const r=await fetch('/api/settings/engine',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({backend,model})});
+    const data=await r.json();if(!r.ok)throw new Error(data.error);
+    activeEngine={backend:data.backend,model:data.model};
+    setText('engine-status','已儲存，下一次分析將使用此引擎。');
+    loadVisionModels();loadStatus();
+}
+async function refreshEngine(apply=false) {
+    if(engineBusy)return;
+    const requestId=++engineRequest;
+    const backend=document.getElementById('engine-select').value;
+    const select=document.getElementById('engine-model');
+    setEngineBusy(true);setText('engine-status','正在連線…');
     try {
-        const r = await fetch('/api/settings/engine?backend=' + backend);
-        const data = await r.json();
-        if (requestId !== engineRequest) return;
-        for (const model of data.models || []) select.add(new Option(model, model));
-        if (data.current_backend === backend && data.models.includes(data.current_model)) select.value = data.current_model;
-        save.disabled = !data.available;
-        setText('engine-status', data.available ? '引擎已就緒 · 可套用模型' : '尚未就緒，請先啟動引擎並載入視覺模型。');
-    } catch { if (requestId === engineRequest) setText('engine-status', '連線失敗，請稍後重試。'); }
+        const r=await fetch('/api/settings/engine?backend='+backend);
+        const data=await r.json();if(!r.ok)throw new Error(data.error);
+        if(requestId!==engineRequest)return;
+        activeEngine={backend:data.current_backend,model:data.current_model};
+        if(!data.available)throw new Error('尚未就緒，請先啟動引擎並載入視覺模型。');
+        select.replaceChildren(...data.models.map(model=>new Option(model,model)));
+        if(data.current_backend===backend && data.models.includes(data.current_model))select.value=data.current_model;
+        setText('engine-status','Settings saved automatically');
+        if(apply)await saveEngineSelection();
+    } catch(error) {
+        restoreEngineSelection();setText('engine-status',error.message);
+    } finally {setEngineBusy(false);}
+}
+async function changeEngineModel() {
+    if(engineBusy)return;
+    setEngineBusy(true);
+    try {await saveEngineSelection();}
+    catch(error){restoreEngineSelection();setText('engine-status',error.message);}
+    finally {setEngineBusy(false);}
 }
 async function refreshShare() {
     const qr = document.getElementById('share-qr');
@@ -79,7 +113,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.querySelector('.control-panel').prepend(controls);
     // The model selector in the settings dialog owns engine and model changes together.
     document.getElementById('model-select').closest('.form-group').hidden = true;
-    document.getElementById('prompt-textarea').addEventListener('input', e => setText('prompt-state', e.target.value === appliedPrompt ? '已套用' : '尚未套用 · 按下方按鈕儲存'));
+    document.getElementById('prompt-textarea').addEventListener('input', e => setText('prompt-state', e.target.value === appliedPrompt ? '已套用' : 'Finish editing to save'));
+    document.getElementById('prompt-textarea').addEventListener('change',e=>applyPromptText(e.target.value));
     document.addEventListener('prompt-applied', e => markScenario(e.detail));
     document.addEventListener('monitor-status', e => {
         const d = e.detail;
@@ -91,17 +126,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('share-open').addEventListener('click',()=>window.navigateHost('connect'));
     document.querySelectorAll('[data-close]').forEach(b => b.addEventListener('click', () => document.getElementById(b.dataset.close).close()));
     document.getElementById('share-refresh').addEventListener('click', refreshShare);
-    document.getElementById('engine-select').addEventListener('change', refreshEngine);
-    document.getElementById('engine-save').addEventListener('click', async e => {
-        const saveButton=e.currentTarget;
-        saveButton.disabled = true;
-        try {
-            const r = await fetch('/api/settings/engine', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({backend:document.getElementById('engine-select').value, model:document.getElementById('engine-model').value})});
-            const d = await r.json(); if (!r.ok) throw new Error(d.error);
-            setText('engine-status', '已儲存，下一次分析將使用此引擎。'); loadVisionModels(); loadStatus();
-        } catch (error) { setText('engine-status', error.message); }
-        finally { saveButton.disabled = false; }
-    });
+    document.getElementById('engine-select').addEventListener('change',()=>refreshEngine(true));
+    document.getElementById('engine-model').addEventListener('change',changeEngineModel);
     try { const r = await fetch('/api/prompt/current'); const d = await r.json(); markScenario(d.text); } catch {}
     loadStatus();
 });
@@ -109,6 +135,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 document.addEventListener('language-changed',()=>{
  const input=document.getElementById('prompt-textarea');
  if(input.value===appliedPrompt)markScenario(appliedPrompt);
- else setText('prompt-state','尚未套用 · 按下方按鈕儲存');
+ else setText('prompt-state','Finish editing to save');
  loadStatus();
 });

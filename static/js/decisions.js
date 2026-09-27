@@ -10,8 +10,6 @@
   async function requestSettings(next) {
     if(pending)return;
     pending=true;
-    const save=document.getElementById('decision-save');
-    if(save)save.disabled=true;
     const modeSelect=document.getElementById('decision-mode');if(modeSelect)modeSelect.disabled=true;
     try {
       const response=await fetch('/api/settings/decisions',next?{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(next)}:{});
@@ -26,7 +24,7 @@
       if(modeSelect&&settings)modeSelect.value=settings.mode;
       const msg=document.getElementById('decision-service-status');if(msg)i18n.text(msg,error.message);
       if(typeof showToast==='function')showToast(t(error.message),'error');
-    } finally {pending=false;if(save)save.disabled=false;if(modeSelect)modeSelect.disabled=false;}
+    } finally {pending=false;if(modeSelect)modeSelect.disabled=false;}
   }
   function syncCards() {
     const active=settings?.mode==='parallel_decision';
@@ -119,7 +117,6 @@
         await requestSettings({mode:'parallel_decision',scenarios:selected});
       },true);
       document.getElementById('decision-mode').addEventListener('change',event=>requestSettings({mode:event.target.value,scenarios:settings?.scenarios||Object.keys(labels)}));
-      document.getElementById('decision-save').addEventListener('click',()=>requestSettings({mode:document.getElementById('decision-mode').value,scenarios:settings?.scenarios||Object.keys(labels)}));
       document.getElementById('decision-check').addEventListener('click',()=>requestSettings());
       requestSettings();
       document.addEventListener('monitor-status',event=>render(event.detail));

@@ -150,7 +150,7 @@
                         <label for="auto-analysis-toggle">持續監控</label>
                     </div>
                 </div>
-                
+
                 <div class="control-group" id="notification-controls" style="display: none;">
                     <div class="toggle-group">
                         <label class="toggle-switch">
@@ -293,7 +293,7 @@
                             </label>
                             <label for="enable-audio-toggle">Enable Microphone (RTSP)</label>
                         </div>
-                        <button class="btn btn-primary" id="apply-device-btn">Apply & Restart Camera</button>
+
                     </div>
                 </div>
 
@@ -313,7 +313,7 @@
                                 <option value="">選擇先前的提示詞</option>
                             </select>
                         </div>
-                        <button class="btn btn-success" id="apply-prompt-btn">套用提示詞</button>
+
                     </div>
                 </div>
             </div>
@@ -351,11 +351,11 @@
     <section id="settings-dialog" class="settings-page" aria-labelledby="settings-title" hidden>
       <div class="dialog-heading"><div><p class="eyebrow">PREFERENCES</p><h2 id="settings-title">服務設定</h2></div><span class="runtime-chip">即時生效</span></div>
       <section class="language-settings"><h3>顯示語言</h3><select data-language-select aria-label="Language"><option value="en">English</option><option value="zh-TW">繁體中文</option><option value="ja">日本語</option><option value="ko">한국어</option></select><p class="helper-copy">只變更介面語言，保留提示詞與模型輸出。</p></section>
-      <section class="decision-settings"><h3>Analysis mode</h3><label for="decision-mode">Mode</label><select id="decision-mode" class="form-control"><option value="direct">Single scenario · Vision</option><option value="parallel_decision">Multi-scenario · Parallel classifier</option></select><p class="helper-copy">Vision observations → Qwen 1.5B → scenario scores.</p><p class="helper-copy">Multi-scenario classification</p><p id="decision-service-status" role="status" class="helper-copy"></p><button id="decision-save" class="btn btn-primary">Apply analysis mode</button><button id="decision-check" class="btn quiet">Check service</button></section>
+      <section class="decision-settings"><h3>Analysis mode</h3><label for="decision-mode">Mode</label><select id="decision-mode" class="form-control"><option value="direct">Single scenario · Vision</option><option value="parallel_decision">Multi-scenario · Parallel classifier</option></select><p class="helper-copy">Vision observations → Qwen 1.5B → scenario scores.</p><p class="helper-copy">Multi-scenario classification</p><p id="decision-service-status" role="status" class="helper-copy"></p><button id="decision-check" class="btn quiet">Check service</button></section>
       <section class="engine-settings"><h3>推論引擎</h3><p class="helper-copy">切換引擎與模型，無須重新啟動。</p>
       <label for="engine-select">框架</label><select id="engine-select" class="form-control"><option value="ollama">Ollama</option><option value="vllm">vLLM</option></select>
       <label for="engine-model">模型</label><select id="engine-model" class="form-control"></select>
-      <p id="engine-status" role="status" class="helper-copy"></p><button id="engine-save" class="btn btn-primary">套用引擎與模型</button>
+      <p id="engine-status" role="status" class="helper-copy"></p>
       <p class="helper-copy">vLLM 未啟動時，在主機執行 <code>./run.sh vllm-up</code>。單張顯示卡請先停止另一引擎的模型，避免顯存不足。</p></section>
       <div id="advanced-settings"></div>
     </section>
@@ -372,8 +372,8 @@
     <!-- Scripts -->
     <script src="/static/vendor/hls.min.js"></script>
     <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
-    <script src="/static/js/media-player.js"></script><script src="/static/js/app.js?v=camera-recovery-1"></script>
-    <script src="/static/js/workspace.js"></script>
+    <script src="/static/js/media-player.js"></script><script src="/static/js/app.js?v=autosave-1"></script>
+    <script src="/static/js/workspace.js?v=autosave-1"></script>
     <script src="/static/js/connect.js"></script><script src="/static/js/shell.js"></script>
-<script src="/static/js/decisions.js"></script></body>
+<script src="/static/js/decisions.js?v=autosave-1"></script></body>
 </html>

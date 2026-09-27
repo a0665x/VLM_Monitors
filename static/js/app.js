@@ -791,7 +791,9 @@ function initializeEventListeners() {
     });
 
     // Apply Device Settings
-    document.getElementById('apply-device-btn').addEventListener('click', async () => {
+    const deviceControls=['video-device-select','audio-device-select','enable-audio-toggle'].map(id=>document.getElementById(id));
+    async function applyDeviceSettings(event) {
+        deviceControls.forEach(control=>control.disabled=true);
         const videoDevice = document.getElementById('video-device-select').value;
         const audioDevice = document.getElementById('audio-device-select').value;
         const enableAudio = document.getElementById('enable-audio-toggle').checked;
@@ -818,18 +820,18 @@ function initializeEventListeners() {
                 }, 1000);
             } else {
                 showToast('Failed to switch: ' + data.error, 'error');
+                if(event.target.type==='checkbox')event.target.checked=!enableAudio;
+                await Promise.all([loadVideoDevices(),loadAudioDevices()]);
             }
         } catch (error) {
             console.error('Device switch error:', error);
             showToast('Failed to switch device', 'error');
-        }
-    });
+            if(event.target.type==='checkbox')event.target.checked=!enableAudio;
+                await Promise.all([loadVideoDevices(),loadAudioDevices()]);
+        } finally {deviceControls.forEach(control=>control.disabled=false);}
+    }
+    deviceControls.forEach(control=>control.addEventListener('change',applyDeviceSettings));
 
-    // Apply Prompt
-    document.getElementById('apply-prompt-btn').addEventListener('click', async () => {
-        const text = document.getElementById('prompt-textarea').value;
-        applyPromptText(text);
-    });
 
     // Prompt History Selection
     document.getElementById('prompt-history').addEventListener('change', async (e) => {
