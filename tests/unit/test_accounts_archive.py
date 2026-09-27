@@ -181,3 +181,25 @@ def test_phone_login_preserves_destination_and_rejects_external_targets(host):
     for invalid in ('https://example.com','//example.com','/\\example.com','/join?next=https://example.com'):
         assert safe_destination(invalid)=='/join'
     assert safe_destination('/join?mode=publish')=='/join?mode=publish'
+
+def test_playback_is_scoped_to_account_camera_and_local_day(host):
+    _,_,a=host;c,info=admin(host);uid=info['user']['id'];now=time.time();frame=np.zeros((20,20,3),dtype=np.uint8)
+    own=a.save(uid,'camera',frame,now,'change',1)
+    a.save('other','camera',frame,now,'change',1)
+    a.save(uid,'other-camera',frame,now,'change',1)
+    a.save(uid,'camera',frame,now-86400,'change',1)
+    r=c.get('/api/archive/playback',query_string={'source_id':'camera','start':now-60,'end':now+60})
+    assert r.status_code==200 and [f['id'] for f in r.json['frames']]==[own]
+    assert c.get('/api/archive/playback',query_string={'start':'nan','end':'nan'}).status_code==400
+    assert c.get('/api/archive/playback',query_string={'start':0,'end':90001}).status_code==400
+    assert c.get('/api/archive/playback',query_string={'start':now,'end':now-1}).status_code==400
+
+def test_playback_overview_keeps_event_frames_and_last_frame(host):
+    _,_,a=host;c,info=admin(host);uid=info['user']['id'];start=time.time()
+    with a.db() as db:
+        db.executemany('INSERT INTO archive_frames VALUES(?,?,?,?,?,?,?,?)',[(str(i),uid,'camera',start+i,'unused.jpg',0,'change',1) for i in range(4001)])
+        db.execute('INSERT INTO archive_events VALUES(?,?,?,?,?,?)',('event',uid,'camera',start+1,'["person"]','1'))
+    result=c.get('/api/archive/playback',query_string={'source_id':'camera','start':start,'end':start+86400}).json
+    ids={f['id'] for f in result['frames']}
+    assert '1' in ids and '4000' in ids and result['total_frames']==4001
+    assert len(ids)<=2101

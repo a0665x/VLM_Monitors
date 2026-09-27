@@ -19,7 +19,7 @@ Sessions expire after 24 hours and sign-out revokes the server session. Camera p
 
 ## Saved moments
 
-Each account can enable one camera in **Saved moments**. Archiving is opt-in and independent of continuous AI analysis. The CPU compares small luminance images once a second; meaningful changes are saved, while an unchanged scene keeps a sample about once a minute. Analysis events preserve recent context and subsequent frames. Packet size/bitrate is not used as a scene detector.
+Open **Recordings**, select a camera and turn on **Record**. Each account can record one camera. Choose a date to replay saved scene-change frames immediately, drag the time slider or tap an event thumbnail. The day uses your browser’s local timezone. Storage details and UTC-day MP4 exports are under **Storage & downloads**. Large days show a bounded overview while keeping available event snapshots; exports retain the full saved sequence. Archiving is opt-in and independent of continuous AI analysis. The CPU compares small luminance images once a second; meaningful changes are saved, while an unchanged scene keeps a sample about once a minute. Analysis events preserve recent context and subsequent frames. Packet size/bitrate is not used as a scene detector.
 
 Choose a retained UTC day to export a 12 fps MP4 using the CPU. The video has a UTC timestamp at the bottom right. Downloadable JSON maps each video frame to its original capture time, camera and reason. This is timestamp overlay plus a JSON sidecar; it does not embed a binary KLV stream.
 

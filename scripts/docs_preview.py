@@ -22,8 +22,9 @@ def status():
 
 @app.route('/')
 @app.route('/join')
+@app.route('/archive')
 def page():
-    name='join.html' if request.path=='/join' else 'index.html'
+    name={'/join':'join.html','/archive':'archive.html'}.get(request.path,'index.html')
     html=(ROOT/'static'/name).read_text()
     html=html.replace('https://cdn.jsdelivr.net/npm/hls.js@latest','/static/vendor/hls.min.js').replace('https://cdn.socket.io/4.5.4/socket.io.min.js','/docs/demo/socket.js')
     html=html.replace('</head>','<link rel="stylesheet" href="/docs/demo/preview.css"></head>')
@@ -57,6 +58,13 @@ def api(name):
             selected=source_id
             return jsonify(success=True,selected_source_id=selected,sources=SOURCES)
         return jsonify(success=False,error='Documentation preview: live actions are disabled.'),403
+    if name=='archive':
+        from datetime import datetime,timezone
+        return jsonify(config={'source_id':'host-camera','enabled':False},recorded_sources=['host-camera','phone-kitchen'],usage={'n':120,'bytes':18000000},quota_bytes=1073741824,retention_days=7,days=[{'day':datetime.now(timezone.utc).strftime('%Y-%m-%d'),'frames':120}],storage={'paused':False},job=None,error='')
+    if name=='archive/playback':
+        start=float(request.args.get('start',0))+9*3600
+        return jsonify(frames=[dict(id='demo-'+str(i),ts=start+i*60,reason='change') for i in range(30)],events=[dict(id='demo-event',ts=start+5*60,frame_id='demo-5',categories=['person','pet'])],total_frames=30)
+    if name.startswith('archive/frame/demo-'):return send_from_directory(ROOT/'docs/assets','scenario-person-pet.png')
     routes={
       'status':status(),
       'sources':dict(sources=SOURCES,selected_source_id=selected),

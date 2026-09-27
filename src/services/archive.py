@@ -100,10 +100,11 @@ class Archive:
             events=[dict(r) for r in db.execute('SELECT * FROM archive_events WHERE user_id=? ORDER BY ts DESC LIMIT 100',(uid,))]
             days=[dict(r) for r in db.execute("SELECT strftime('%Y-%m-%d',ts,'unixepoch') day,COUNT(*) frames FROM archive_frames WHERE user_id=? GROUP BY day ORDER BY day DESC",(uid,))]
         for e in events:e['categories']=json.loads(e['categories'])
+        with self.db() as db:recorded_sources=[r['source_id'] for r in db.execute('SELECT DISTINCT source_id FROM archive_frames WHERE user_id=?',(uid,))]
         export_file=self.root/uid/'timelapse.mp4'
         totals=dict(totals);totals['bytes']+=export_file.stat().st_size if export_file.exists() else 0
         if uid not in self.jobs and export_file.exists():self.jobs[uid]={'state':'ready'}
-        return dict(config=dict(config) if config else None,usage=dict(totals),events=events,days=days,quota_bytes=self.quota,retention_days=self.retention,slots=1,job=self.jobs.get(uid),error=self.errors.get(uid,''),storage=self.storage())
+        return dict(recorded_sources=recorded_sources,config=dict(config) if config else None,usage=dict(totals),events=events,days=days,quota_bytes=self.quota,retention_days=self.retention,slots=1,job=self.jobs.get(uid),error=self.errors.get(uid,''),storage=self.storage())
     def save(self,uid,source,frame,ts,reason,change):
         # Idempotent per account/source/capture timestamp, including pre-trigger replay.
         ident=__import__('hashlib').sha256(f'{uid}/{source}/{ts:.3f}'.encode()).hexdigest()[:32]
@@ -241,6 +242,24 @@ def init_archive(app,accounts,frame_provider,sources,directory=None,start=True):
         try:archive.configure(g.user['id'],data.get('source_id'),data.get('enabled'))
         except ValueError as exc:return jsonify(error=str(exc)),400
         return jsonify(success=True)
+    @bp.route('/api/archive/playback')
+    def playback():
+        try:
+            start=float(request.args.get('start',''));end=float(request.args.get('end',''))
+            if not __import__('math').isfinite(start+end) or not 0<end-start<=90000:raise ValueError()
+        except ValueError:return jsonify(error='Invalid playback day'),400
+        source=request.args.get('source_id','')
+        with archive.db() as db:
+            rows=[dict(r) for r in db.execute('SELECT id,ts,reason FROM archive_frames WHERE user_id=? AND source_id=? AND ts>=? AND ts<? ORDER BY ts,id',(g.user['id'],source,start,end))]
+            events=[dict(r) for r in db.execute('SELECT id,ts,categories,frame_id FROM archive_events WHERE user_id=? AND source_id=? AND ts>=? AND ts<? ORDER BY ts DESC LIMIT 100',(g.user['id'],source,start,end))]
+        # A day overview stays bounded; keep event snapshots in the sampled sequence.
+        step=max(1,__import__('math').ceil(len(rows)/2000));selected={r['id']:r for r in rows[::step]}
+        event_ids={e['frame_id'] for e in events}
+        for row in rows:
+            if row['id'] in event_ids:selected[row['id']]=row
+        if rows:selected[rows[-1]['id']]=rows[-1]
+        for event in events:event['categories']=json.loads(event['categories'])
+        return jsonify(frames=sorted(selected.values(),key=lambda r:(r['ts'],r['id'])),events=events,total_frames=len(rows))
     @bp.route('/api/archive/frame/<frame_id>')
     def frame(frame_id):
         with archive.db() as db:row=db.execute('SELECT path FROM archive_frames WHERE user_id=? AND id=?',(g.user['id'],frame_id)).fetchone()

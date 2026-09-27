@@ -14,7 +14,7 @@ Run a local camera monitoring service, connect phones by QR code, and choose wha
 - **Scenario scores** — compare multiple categories in one chart.
 - **Runtime settings** — select Ollama or vLLM and switch models from the UI.
 - **Accounts** — local administrator and Google sign-in, with private saved moments.
-- **Smart timelapse** — retain scene changes and event context with automatic storage limits.
+- **Recording playback** — choose a camera and date, tap an event to replay, and turn recording on with one switch. Scene changes are retained with automatic storage limits.
 - **Four languages** — English, Traditional Chinese, Japanese and Korean.
 
 ## Get started
