@@ -22,7 +22,7 @@ const state = {
     currentRisk: false,
     analysisRunning: false,
     selectedSourceId: 'agx-local',
-    selectedSourceLabel: '本機相機',
+    selectedSourceLabel: 'Host camera',
     clientId: '',
     sources: [],
     situationRoomClientId: '',
@@ -128,7 +128,7 @@ function updateStreamUrls() {
     const selected = state.sources.find((source) => source.id === state.selectedSourceId);
     const streamUrl = selected ? getSourceWebRtcUrl(selected) : `${getWebRtcBaseUrl()}/camera`;
     setText('stream-url', streamUrl ? `WebRTC live view: ${streamUrl}` : 'Waiting for source');
-    setText('selected-source-label', selected ? `${selected.label} (${selected.id})` : 'Waiting for source');
+    setText('selected-source-label', selected ? i18n.sourceLabel(selected) : 'Waiting for source');
 }
 
 function getWebRtcBaseUrl() {
@@ -405,6 +405,7 @@ function gridClassForCount(count) {
     return 'grid-3';
 }
 
+let sourcePlayerCleanups=[];
 function renderSourceGrid() {
     const grid = document.getElementById('source-grid');
     if (!grid) {
@@ -412,7 +413,7 @@ function renderSourceGrid() {
     }
     const sources = state.sources.length ? state.sources : [{
         id: 'agx-local',
-        label: '本機相機',
+        label: 'Host camera',
         status: 'online',
         webrtc_url: `${getWebRtcBaseUrl()}/camera`,
         is_local: true
@@ -426,6 +427,7 @@ function renderSourceGrid() {
         updateSourceTileStates();
         return;
     }
+    sourcePlayerCleanups.forEach(cleanup=>cleanup());sourcePlayerCleanups=[];
     state.gridSignature = signature;
     grid.className = `source-grid situation-grid ${gridClassForCount(sources.length)}`;
     grid.innerHTML = sources.map((source) => {
@@ -433,13 +435,13 @@ function renderSourceGrid() {
         const isRisk = selected && state.currentRisk;
         const statusClass = source.status === 'online' ? 'online' : 'offline';
         const streamMarkup = shouldUseProxyHlsPlayback()
-            ? `<video class="source-video" title="${escapeHtml(source.label || source.id)} stream" src="${getSourcePlaybackUrl(source)}" autoplay muted playsinline controls></video>`
-            : `<iframe class="webrtc-frame" title="${escapeHtml(source.label || source.id)} stream" src="${getSourceWebRtcUrl(source)}" allow="autoplay; fullscreen; microphone; camera"></iframe>`;
+            ? `<video class="source-video" title="${escapeHtml(i18n.sourceLabel(source))} stream" autoplay muted playsinline controls></video>`
+            : `<iframe class="webrtc-frame" title="${escapeHtml(i18n.sourceLabel(source))} stream" src="${getSourceWebRtcUrl(source)}" allow="autoplay; fullscreen; microphone; camera"></iframe>`;
         return `
             <article class="source-tile ${selected ? 'monitored' : ''} ${source.status !== 'online' ? 'offline' : ''} ${isRisk ? 'risk' : ''}" data-source-id="${source.id}">
                 <div class="source-tile-header">
                     <div>
-                        <div class="source-tile-title">${escapeHtml(source.label || source.id)}</div>
+                        <div class="source-tile-title">${escapeHtml(i18n.sourceLabel(source))}</div>
                         <div class="source-status ${statusClass}">${source.status === 'online' ? 'ONLINE' : 'OFFLINE'}</div>
                     </div>
                     <div class="source-header-actions">
@@ -503,6 +505,7 @@ function renderSourceGrid() {
             }
         });
     });
+    grid.querySelectorAll('.source-tile').forEach(tile=>{const source=sources.find(s=>s.id===tile.dataset.sourceId),video=tile.querySelector('video.source-video'),frame=tile.querySelector('iframe.webrtc-frame');if(video)sourcePlayerCleanups.push(livePlayer.attachHls(video,getSourcePlaybackUrl(source)));else if(frame)sourcePlayerCleanups.push(livePlayer.watchWebRtc(frame,getSourcePlaybackUrl(source)));});
     updateStreamUrls();
     updateSourceTileStates();
 }
@@ -536,6 +539,8 @@ function updateSourceTileStates() {
     }
     grid.querySelectorAll('.source-tile').forEach((tile) => {
         const sourceId = tile.getAttribute('data-source-id');
+        const source=state.sources.find(s=>s.id===sourceId);
+        if(source){tile.querySelector('.source-tile-title').textContent=i18n.sourceLabel(source);const player=tile.querySelector('iframe,video');if(player)player.title=i18n.sourceLabel(source);}
         const selected = sourceId === state.selectedSourceId;
         const isRisk = selected && state.currentRisk;
         tile.classList.toggle('monitored', selected);
@@ -1288,3 +1293,6 @@ function showToast(message, type = 'success') {
         toast.classList.remove('show');
     }, 3000);
 }
+
+document.addEventListener("language-changed",()=>{updateStreamUrls();updateSourceTileStates();});
+window.addEventListener("pagehide",()=>sourcePlayerCleanups.forEach(cleanup=>cleanup()));

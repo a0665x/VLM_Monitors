@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="en">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>VLM Monitor · Cameras</title><link rel="stylesheet" href="/static/css/client.css"><script src="/static/js/locales.js"></script><script src="/static/js/i18n.js"></script><link rel="stylesheet" href="/static/css/decisions.css"><script src="/static/js/account.js"></script></head>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>VLM Monitor · Cameras</title><link rel="stylesheet" href="/static/css/client.css"><script src="/static/js/locales.js"></script><script src="/static/js/i18n.js?v=camera-label-1"></script><link rel="stylesheet" href="/static/css/decisions.css"><script src="/static/js/account.js"></script></head>
 <body>
 <header><a class="brand" href="/join"><b>V</b> 相機</a><button id="invite-open" class="quiet">加入其他手機</button><button id="help-toggle" class="quiet" aria-expanded="false" aria-controls="connection-guide">連線引導</button><select data-language-select aria-label="Language"><option value="en">English</option><option value="zh-TW">繁體中文</option><option value="ja">日本語</option><option value="ko">한국어</option></select></header>
 <main>
@@ -29,5 +29,5 @@
 </section>
 <footer class="client-footer"><a href="/">主機管理與 AI 設定 ↗</a><p class="muted">查看與分享可以同時使用。分享中切換上方頁籤，不會停止相機。</p><span id="network-engine" hidden></span></footer>
 <dialog id="invite-dialog" aria-labelledby="invite-title"><div class="section-title"><h2 id="invite-title">讓另一支手機加入</h2><button id="invite-close" class="quiet">關閉</button></div><p>對方先開啟 Tailscale 並登入同一個網路，再掃碼。</p><div class="connect-code"><img data-connect-qr alt="加入相機查看與分享頁面的 QR code" hidden><p data-connect-placeholder>正在準備 QR code…</p></div><p data-connect-status role="status"></p><a data-connect-link hidden target="_blank" rel="noopener">開啟手機頁面 ↗</a><button data-connect-refresh class="quiet">重新檢查</button></dialog>
-</main><script src="/static/vendor/mediamtx-publisher.js"></script><script src="/static/vendor/hls.min.js"></script><script src="/static/js/client.js"></script><script src="/static/js/connect.js"></script>
+</main><script src="/static/vendor/mediamtx-publisher.js"></script><script src="/static/vendor/hls.min.js"></script><script src="/static/js/media-player.js"></script><script src="/static/js/client.js?v=camera-recovery-1"></script><script src="/static/js/connect.js"></script>
 <script src="/static/js/decisions.js"></script></body></html>

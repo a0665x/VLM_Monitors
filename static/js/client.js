@@ -38,11 +38,11 @@ function renderPlayer() {
     if (key===playerKey) return;
     playerKey = key;
     if (hlsPlayer) { hlsPlayer.destroy(); hlsPlayer=null; }
-    el('viewer').replaceChildren(); el('view-title').textContent = source.label;
+    el('viewer').replaceChildren(); el('view-title').textContent = i18n.sourceLabel(source);
     if (source.ready === false) { const p=document.createElement('p'); p.textContent='這台相機尚未提供影像';el('viewer').append(p);i18n.text(el('view-hint'),'請在提供影像的裝置上開始分享，並保持頁面開啟。');return; }
     const path = source.path || (source.is_local ? 'camera' : source.id);
     if (mode==='webrtc') {
-        const frame=document.createElement('iframe');frame.src='/proxy/webrtc/'+encodeURIComponent(path)+'/';frame.title=source.label+' · '+i18n.t('即時影像');frame.allow='autoplay; fullscreen';frame.allowFullscreen=true;
+        const frame=document.createElement('iframe');frame.src='/proxy/webrtc/'+encodeURIComponent(path)+'/';frame.title=i18n.sourceLabel(source)+' · '+i18n.t('即時影像');frame.allow='autoplay; fullscreen';frame.allowFullscreen=true;
         frame.addEventListener('load',()=>{
             try {
                 const video=frame.contentDocument.querySelector('video');
@@ -51,31 +51,31 @@ function renderPlayer() {
             } catch {}
         });
         el('viewer').append(frame);
+        hlsPlayer={destroy:livePlayer.watchWebRtc(frame,'/proxy/hls/'+encodeURIComponent(path)+'/index.m3u8')};
         i18n.text(el('view-hint'),'WebRTC 正在連線；若一直沒有影像，切換 HLS 相容模式並檢查 Tailscale。');
     } else {
         const video=document.createElement('video');video.autoplay=true;video.muted=true;video.playsInline=true;video.controls=true;el('viewer').append(video);
         const url='/proxy/hls/'+encodeURIComponent(path)+'/index.m3u8';
-        if(video.canPlayType('application/vnd.apple.mpegurl')) video.src=url;
-        else if(window.Hls && Hls.isSupported()){ hlsPlayer=new Hls();hlsPlayer.loadSource(url);hlsPlayer.attachMedia(video);hlsPlayer.on(Hls.Events.ERROR,(_,d)=>{if(d.fatal)i18n.text(el('view-hint'),'相容播放失敗，請確認來源仍在線，或切回 WebRTC。');}); }
-        else i18n.text(el('view-hint'),'此瀏覽器不支援 HLS，請使用 WebRTC。');
+        hlsPlayer={destroy:livePlayer.attachHls(video,url)};
         video.addEventListener('playing',()=>i18n.text(el('view-hint'),'正在播放 · HLS 相容模式可能有數秒延遲'));
     }
 }
-let gallerySignature = '';
+let gallerySignature = '';let galleryCleanups=[];
 function renderGallery() {
     const signature = JSON.stringify(sources.map(s=>[s.id,s.label,s.ready]));
     if (signature===gallerySignature) return;
     gallerySignature=signature;
+    galleryCleanups.forEach(fn=>fn());galleryCleanups=[];
     el('client-gallery').replaceChildren();
     for (const source of sources) {
         const card=document.createElement('article');card.className='gallery-card';
         if(source.ready!==false){
             const frame=document.createElement('iframe');
             frame.src='/proxy/webrtc/'+encodeURIComponent(source.path || (source.is_local?'camera':source.id))+'/';
-            frame.title=source.label+' · '+i18n.t('即時影像');frame.allow='autoplay; fullscreen';frame.allowFullscreen=true;
-            card.append(frame);
+            frame.title=i18n.sourceLabel(source)+' · '+i18n.t('即時影像');frame.allow='autoplay; fullscreen';frame.allowFullscreen=true;
+            card.append(frame);galleryCleanups.push(livePlayer.watchWebRtc(frame,'/proxy/hls/'+encodeURIComponent(source.path||(source.is_local?'camera':source.id))+'/index.m3u8'));
         } else {const p=document.createElement('p');p.textContent='尚未分享影像';card.append(p);}
-        const button=document.createElement('button');button.dataset.sourceId=source.id;button.textContent=source.label+' · '+i18n.t(source.ready===false?'等待分享':'放大觀看');button.dataset.noI18n='';
+        const button=document.createElement('button');button.dataset.sourceId=source.id;button.textContent=i18n.sourceLabel(source)+' · '+i18n.t(source.ready===false?'等待分享':'放大觀看');button.dataset.noI18n='';
         button.addEventListener('click',()=>{watching=source.id;el('focused-view').open=true;renderPlayer();el('focused-view').scrollIntoView({block:'start',behavior:'smooth'});});
         card.append(button);el('client-gallery').append(card);
     }
@@ -88,7 +88,7 @@ function renderSources(selectedAI) {
     const list=el('client-sources');list.replaceChildren();
     for(const source of sources){
         const b=document.createElement('button');b.className='source-choice';b.setAttribute('aria-pressed',String(source.id===watching));
-        const title=document.createElement('strong');title.textContent=source.label;title.dataset.noI18n='';
+        const title=document.createElement('strong');title.textContent=i18n.sourceLabel(source);title.dataset.noI18n='';
         const detail=document.createElement('small');detail.textContent=i18n.t(source.ready===true?'影像在線':source.ready===false?'等待影像':'狀態待確認')+(source.id===selectedAI?' · '+i18n.t('AI 來源'):'');b.append(title,detail);
         b.addEventListener('click',()=>{watching=source.id;el('focused-view').open=true;renderSources(selectedAI);renderPlayer();});list.append(b);
     }
@@ -104,7 +104,7 @@ async function refresh(){
         if(!watching || !sources.some(s=>s.id===watching))watching=sources.find(s=>s.ready)?.id || sources[0]?.id || '';
         el('network-engine').textContent=data.backend+' · '+data.model;
         const selected=sources.find(s=>s.id===data.selected_source_id);
-        el('ai-status').textContent=i18n.t('AI 來源')+' · '+(selected?.label || i18n.t('未選擇'));
+        el('ai-status').textContent=i18n.t('AI 來源')+' · '+(selected?i18n.sourceLabel(selected):i18n.t('未選擇'));
         renderSources(data.selected_source_id);renderGallery();renderPlayer();
         if(!data.media_ready)i18n.text(el('view-hint'),'媒體通道狀態尚未就緒。啟用 Tailscale Serve 後，請在主機執行 ./run.sh local-restart。');
         const status=await api('/api/status');el('client-result').textContent=status.analysis_running?i18n.t('主機正在分析…'):status.last_inference_error || status.last_inference_text || i18n.t('主機尚未產生分析結果。');
@@ -155,6 +155,9 @@ if(new URLSearchParams(location.search).get('mode')==='publish')changeTab('publi
 refresh();setInterval(refresh,4000);
 
 document.addEventListener('language-changed',()=>{
- document.querySelectorAll('#client-gallery button[data-source-id]').forEach(button=>{const source=sources.find(s=>s.id===button.dataset.sourceId);if(source)button.textContent=source.label+' · '+i18n.t(source.ready===false?'等待分享':'放大觀看');});
+ document.querySelectorAll('#client-gallery button[data-source-id]').forEach(button=>{const source=sources.find(s=>s.id===button.dataset.sourceId);if(source)button.textContent=i18n.sourceLabel(source)+' · '+i18n.t(source.ready===false?'等待分享':'放大觀看');});
+ const selected=sources.find(s=>s.id===watching);if(selected)el('view-title').textContent=i18n.sourceLabel(selected);
  refresh();
 });
+
+window.addEventListener("pagehide",()=>{galleryCleanups.forEach(fn=>fn());hlsPlayer?.destroy();});

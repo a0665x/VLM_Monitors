@@ -27,7 +27,7 @@
         annotate();
     }
     function setLanguage(value){if(!languages.includes(value))return;language=value;try{localStorage.setItem('vlm-language',value);}catch{}apply();document.dispatchEvent(new CustomEvent('language-changed',{detail:value}));}
-    window.i18n={t,text,annotate,apply,setLanguage,get language(){return language;}};
+    window.i18n={sourceLabel:source=>(source?.is_local||source?.id==='agx-local')?t('Host camera'):(source?.label||t('Camera')),t,text,annotate,apply,setLanguage,get language(){return language;}};
     document.documentElement.lang=language;
     document.addEventListener('DOMContentLoaded',()=>{
         document.querySelectorAll('[data-language-select]').forEach(s=>{s.value=language;s.addEventListener('change',e=>setLanguage(e.target.value));});
