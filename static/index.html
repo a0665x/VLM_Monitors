@@ -204,6 +204,8 @@
                         <span class="accordion-icon">▼</span>
                     </button>
                     <div class="accordion-content" id="analysis-settings">
+                        <div class="toggle-group"><label class="toggle-switch"><input type="checkbox" id="continuous-analysis-toggle"><span class="slider"></span></label><label for="continuous-analysis-toggle">Continuous analysis</label></div>
+                        <p class="helper-copy">Analyze the latest frame as soon as the previous analysis finishes.</p>
                         <div class="form-group">
                             <label for="model-select">Vision Model</label>
                             <select id="model-select" class="form-control">
@@ -372,8 +374,8 @@
     <!-- Scripts -->
     <script src="/static/vendor/hls.min.js"></script>
     <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
-    <script src="/static/js/media-player.js"></script><script src="/static/js/app.js?v=autosave-1"></script>
-    <script src="/static/js/workspace.js?v=autosave-1"></script>
+    <script src="/static/js/media-player.js"></script><script src="/static/js/app.js?v=continuous-1"></script>
+    <script src="/static/js/workspace.js?v=continuous-1"></script>
     <script src="/static/js/connect.js"></script><script src="/static/js/shell.js"></script>
 <script src="/static/js/decisions.js?v=autosave-1"></script></body>
 </html>

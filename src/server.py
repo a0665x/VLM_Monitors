@@ -43,6 +43,7 @@ app = Flask(__name__,
             static_url_path='/static')
 socketio = SocketIO(app, async_mode='threading')
 authenticated_sockets = {}
+ANALYSIS_SETTINGS_PATH = Path("temp/analysis-settings.json")
 
 # Global State
 app_state = None
@@ -88,6 +89,7 @@ class SelectedSourceFrameThread(threading.Thread):
                 with self.state.lock:
                     if self.state.selected_source_id == self.source_id:
                         self.state.selected_frame = frame_rgb
+                        self.state.selected_frame_at = time.time()
                 time.sleep(0.03)
             except Exception as e:
                 logger.error("Selected source frame tap error for %s: %s", self.source_id, e)
@@ -110,6 +112,7 @@ class AnalysisThread(threading.Thread):
         self.model_idle_seconds = max(5, int(os.getenv('MODEL_IDLE_SECONDS', '300')))
         self.last_model_use = None
         self.last_keepalive = 0
+        self.last_frame_token = None
 
     def run(self):
         next_run_at = None
@@ -125,11 +128,14 @@ class AnalysisThread(threading.Thread):
             should_run_now = self.immediate_requested or next_run_at is None or now >= next_run_at
             if should_run_now:
                 self.immediate_requested = False
+                analyzed=False
                 try:
-                    self._analyze()
+                    analyzed=self._analyze()
                 except Exception as e:
                     logger.error(f"Analysis error: {e}")
-                next_run_at = time.monotonic() + max(0.0, float(self.state.analysis_interval))
+                delay = ((0.0 if analyzed else 0.05) if self.state.continuous_analysis else max(0.0, float(self.state.analysis_interval)))
+                if self.state.last_inference_error:delay=max(1.0,delay)
+                next_run_at = time.monotonic() + delay
                 continue
 
             if self.last_model_use is not None and now-self.last_keepalive >= min(30, self.model_idle_seconds/2):
@@ -210,8 +216,20 @@ class AnalysisThread(threading.Thread):
             logger.info("Skipping analysis because another inference is already running")
             return
 
+        started=False
+        token=None
         try:
             analysis_epoch = self.state.analysis_epoch
+            frame = get_frame_for_selected_source(self.state)
+            if self.state.continuous_analysis and self.state.auto_analyze:
+                with self.state.lock:
+                    local=self.state.selected_source_id == self.state.local_source_id
+                    raw=self.state.latest_frame if local else self.state.selected_frame
+                    stamp=self.state.latest_frame_at if local else self.state.selected_frame_at
+                    token=(self.state.selected_source_id,analysis_epoch,stamp or id(raw))
+                    if raw is None or token == self.last_frame_token:return
+                    frame=raw.copy()
+            started=True
             self.state.analysis_running = True
             self.state.last_inference_error = ""
             self.state.last_inference_text = ""
@@ -220,8 +238,6 @@ class AnalysisThread(threading.Thread):
             emit_inference_stream_update(self.state, "", False)
             self._emit_status_update()
 
-            frame = get_frame_for_selected_source(self.state)
-            
             if frame is None:
                 if self.state.selected_source_id != self.state.local_source_id:
                     deadline = time.time() + 2.5
@@ -257,11 +273,13 @@ class AnalysisThread(threading.Thread):
 
             fc.preview_bytes = buffer.tobytes()
             asyncio.run(self._run_inference(fc, analysis_epoch))
+            if not self.state.last_inference_error:self.last_frame_token=token
+            return True
         finally:
-            self.last_model_use = time.monotonic()
+            if started:self.last_model_use = time.monotonic()
             self.state.analysis_running = False
             self.analysis_lock.release()
-            self._emit_status_update()
+            if started:self._emit_status_update()
 
     async def _run_inference(self, frame_cap, analysis_epoch):
         def on_stream_chunk(text: str, done: bool = False):
@@ -408,6 +426,11 @@ def initialize_backend():
     
     # Create AppState
     app_state = AppState()
+    try:
+        saved=json.loads(ANALYSIS_SETTINGS_PATH.read_text())
+        app_state.continuous_analysis=saved.get('continuous_analysis') is True
+        app_state.analysis_interval=max(0.0,float(saved.get('interval',5)))
+    except (OSError,ValueError,TypeError):pass
     try:
         app_state.decision_settings = validate_decision_settings(json.loads(Path('temp/decision-settings.json').read_text()))
     except (OSError, ValueError, TypeError):
@@ -560,6 +583,7 @@ def stop_selected_source_thread():
     app_state.selected_source_thread = None
     with app_state.lock:
         app_state.selected_frame = None
+        app_state.selected_frame_at = 0
 
 
 def ensure_selected_source_thread():
@@ -618,6 +642,7 @@ def build_status_payload(state: AppState):
         'explanation': state.risk_explanation,
         'auto_analyze': state.auto_analyze,
         'analysis_interval': state.analysis_interval,
+        'continuous_analysis': state.continuous_analysis,
         'risk_threshold': state.risk_threshold,
         'consecutive_count': state.consecutive_risk_count,
         'analysis_running': state.analysis_running,
@@ -992,6 +1017,18 @@ def update_analysis_config():
     data = request.json
     
     rerun_immediately = False
+    if 'continuous_analysis' in data or 'interval' in data:
+        continuous=data.get('continuous_analysis',app_state.continuous_analysis)
+        try:interval=float(data.get('interval',app_state.analysis_interval))
+        except (ValueError,TypeError):return jsonify(success=False,error='Invalid interval'),400
+        import math
+        if not isinstance(continuous,bool) or not math.isfinite(interval) or interval<0:return jsonify(success=False,error='Invalid analysis settings'),400
+        try:
+            ANALYSIS_SETTINGS_PATH.parent.mkdir(parents=True,exist_ok=True)
+            staging=ANALYSIS_SETTINGS_PATH.with_suffix('.tmp')
+            staging.write_text(json.dumps(dict(continuous_analysis=continuous,interval=interval)))
+            staging.replace(ANALYSIS_SETTINGS_PATH)
+        except OSError:return jsonify(success=False,error='Could not save analysis settings'),500
 
     if 'model' in data:
         # Unload previous model
@@ -1006,6 +1043,11 @@ def update_analysis_config():
         reset_detection_state(f"Switched model to {data['model']}. Waiting for next analysis.")
         rerun_immediately = True
         
+    if 'continuous_analysis' in data:
+        if not isinstance(data['continuous_analysis'],bool):return jsonify(success=False,error='Invalid continuous mode'),400
+        app_state.continuous_analysis=data['continuous_analysis']
+        rerun_immediately=app_state.auto_analyze
+
     if 'interval' in data:
         app_state.analysis_interval = max(0.0, float(data['interval']))
         rerun_immediately = rerun_immediately or app_state.auto_analyze

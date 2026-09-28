@@ -120,7 +120,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const d = e.detail;
         i18n.text(action, d.auto_analyze ? '暫停持續監控' : '開始持續監控');
         action.classList.toggle('monitor-active', !!d.auto_analyze);
-        setText('monitor-summary', `${d.inference_backend || 'ollama'} · ${d.analysis_interval ?? 5}s · ${i18n.t(d.auto_analyze ? '持續監控中' : '已暫停')}`);
+        setText('monitor-summary', `${d.inference_backend || 'ollama'} · ${d.continuous_analysis ? i18n.t('Continuous analysis') : (d.analysis_interval ?? 5)+'s'} · ${i18n.t(d.auto_analyze ? '持續監控中' : '已暫停')}`);
     });
     document.getElementById('settings-open').addEventListener('click',()=>window.navigateHost('settings'));
     document.getElementById('share-open').addEventListener('click',()=>window.navigateHost('connect'));

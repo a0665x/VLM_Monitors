@@ -728,6 +728,12 @@ function initializeEventListeners() {
         });
     }
 
+    document.getElementById('continuous-analysis-toggle').addEventListener('change',async e=>{
+        e.target.disabled=true;
+        await updateAnalysisConfig({continuous_analysis:e.target.checked});
+        await loadStatus();e.target.disabled=false;
+    });
+
     // Analysis Settings Sliders
     document.getElementById('interval-slider').addEventListener('input', (e) => {
         document.getElementById('interval-value').textContent = Number(e.target.value) === 0 ? '0s (max)' : `${e.target.value}s`;
@@ -1144,6 +1150,9 @@ function syncAnalysisControls(data) {
     const smsToggle = document.getElementById('enable-sms-toggle');
     const webhookToggle = document.getElementById('enable-webhook-toggle');
     const intervalSlider = document.getElementById('interval-slider');
+    const continuous=document.getElementById('continuous-analysis-toggle');
+    if(continuous)continuous.checked=!!data.continuous_analysis;
+    if(intervalSlider)intervalSlider.disabled=!!data.continuous_analysis;
     const thresholdSlider = document.getElementById('threshold-slider');
     const overlayToggle = document.getElementById('show-inference-overlay-toggle');
     const modelSelect = document.getElementById('model-select');
@@ -1170,7 +1179,7 @@ function syncAnalysisControls(data) {
     }
     if (intervalSlider && document.activeElement !== intervalSlider && typeof data.analysis_interval === 'number') {
         intervalSlider.value = String(data.analysis_interval);
-        setText('interval-value', Number(data.analysis_interval) === 0 ? '0s (max)' : `${data.analysis_interval}s`);
+        setText('interval-value', data.continuous_analysis ? 'No wait' : Number(data.analysis_interval) === 0 ? '0s (max)' : `${data.analysis_interval}s`);
     }
     if (thresholdSlider && document.activeElement !== thresholdSlider && typeof data.risk_threshold === 'number') {
         thresholdSlider.value = String(data.risk_threshold);

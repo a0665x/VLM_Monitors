@@ -9,6 +9,7 @@ class AppState:
         self.latest_frame = None
         self.latest_frame_at = 0
         self.selected_frame = None
+        self.selected_frame_at = 0
         self.risk_score = 0.0
         self.risk_binary = False
         self.risk_explanation = ""
@@ -30,6 +31,7 @@ class AppState:
         # Settings
         self.auto_analyze = False
         self.analysis_interval = 5.0
+        self.continuous_analysis = False
         self.inference_backend = backend_name()
         self.scoring_model = default_model()
         self.risk_threshold = 3

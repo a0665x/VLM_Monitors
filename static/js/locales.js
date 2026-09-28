@@ -1546,3 +1546,5 @@ window.UI_TRANSLATIONS.push(["Choose camera", "選擇相機", "カメラを選�
 window.UI_TRANSLATIONS.push(...[["Connecting camera…", "正在連接相機…", "カメラに接続中…", "카메라 연결 중…"], ["Reconnecting camera…", "正在重新連接相機…", "カメラに再接続中…", "카메라 다시 연결 중…"], ["Tap play to watch", "點播放開始觀看", "再生ボタンを押してください", "재생 버튼을 눌러 시청하세요"], ["This browser cannot play this stream.", "此瀏覽器無法播放這個串流。", "このブラウザでは再生できません。", "이 브라우저에서는 재생할 수 없습니다."]]);
 
 window.UI_TRANSLATIONS.push(["Saving…","儲存中…","保存中…","저장 중…"],["Settings saved automatically","設定會自動儲存","設定は自動保存されます","설정이 자동 저장됩니다"],["Finish editing to save","完成編輯後自動儲存","編集完了後に自動保存","편집 완료 후 자동 저장"]);
+
+window.UI_TRANSLATIONS.push(["Continuous analysis","連續分析","連続解析","연속 분석"],["No wait","不等待","待機なし","대기 없음"],["Analyze the latest frame as soon as the previous analysis finishes.","每輪分析完成後立即分析最新影格。","解析完了後、最新フレームをすぐに解析します。","분석이 끝나면 최신 프레임을 즉시 분석합니다."]);

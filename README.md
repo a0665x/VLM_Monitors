@@ -12,6 +12,7 @@ Run a local camera monitoring service, connect phones by QR code, and choose wha
 - **Phone sharing** — scan a QR code to watch or share your camera.
 - **Scenario cards** — person, baby distress, fire, smoke, pets and custom prompts.
 - **Scenario scores** — compare multiple categories in one chart.
+- **Continuous analysis** — enable it in Settings to analyze each newest frame without an extra interval; older frames never build up in a queue.
 - **Runtime settings** — select Ollama or vLLM and switch models from the UI.
 - **Accounts** — local administrator and Google sign-in, with private saved moments.
 - **Recording playback** — choose a camera and date, tap an event to replay, and turn recording on with one switch. Scene changes are retained with automatic storage limits.
